@@ -1,0 +1,73 @@
+# Baseline de Ambiente IAM ZCorp
+
+## Objetivo
+
+Definir variáveis mínimas por componente para execução local e evolução para Kubernetes.
+
+## Shell
+
+- SHELL_PORT=3000
+- SHELL_PUBLIC_BASE_URL=https://app-authpoc.tasso.dev.br
+- SHELL_BFF_BASE_URL=https://api-authpoc.tasso.dev.br
+
+## BFF
+
+- BFF_PORT=4000
+- BFF_PUBLIC_BASE_URL=https://api-authpoc.tasso.dev.br
+- BFF_SESSION_COOKIE_NAME=session_id
+- BFF_SESSION_COOKIE_SECURE=true
+- BFF_SESSION_COOKIE_HTTP_ONLY=true
+- BFF_SESSION_COOKIE_SAME_SITE=Strict
+- BFF_SESSION_TTL_SECONDS=28800
+- BFF_ABSOLUTE_SESSION_TTL_SECONDS=43200
+
+## OIDC / CyberArk
+
+- OIDC_ISSUER_URL=<preencher>
+- OIDC_AUTHORIZATION_ENDPOINT=<preencher>
+- OIDC_TOKEN_ENDPOINT=<preencher>
+- OIDC_JWKS_URL=<preencher>
+- OIDC_END_SESSION_ENDPOINT=<opcional>
+- OIDC_CLIENT_ID=<secret>
+- OIDC_CLIENT_SECRET=<secret>
+- OIDC_REDIRECT_URI=https://api-authpoc.tasso.dev.br/api/auth/callback
+- OIDC_SCOPES=openid profile email ROLES
+
+## Redis
+
+- REDIS_HOST=redis
+- REDIS_PORT=6379
+- REDIS_USERNAME=<opcional>
+- REDIS_PASSWORD=<secret>
+- REDIS_TLS_ENABLED=false
+
+## Banco Relacional (authz-db)
+
+- AUTHZ_DB_HOST=authz-db
+- AUTHZ_DB_PORT=5432
+- AUTHZ_DB_NAME=iam_authz
+- AUTHZ_DB_USER=<secret>
+- AUTHZ_DB_PASSWORD=<secret>
+- AUTHZ_DB_SSL_MODE=disable
+
+## Traefik
+
+- TRAEFIK_HTTP_PORT=80
+- TRAEFIK_HTTPS_PORT=443
+- TRAEFIK_DASHBOARD_HOST=traefik-authpoc.tasso.dev.br
+- TRAEFIK_CERT_RESOLVER=letsencrypt
+- TRAEFIK_ACME_EMAIL=<preencher>
+- TRAEFIK_ACME_STORAGE=/letsencrypt/acme.json
+
+## Placeholders para Kubernetes Secrets
+
+- secret/oidc-client
+  - OIDC_CLIENT_ID
+  - OIDC_CLIENT_SECRET
+- secret/redis-auth
+  - REDIS_PASSWORD
+- secret/authz-db
+  - AUTHZ_DB_USER
+  - AUTHZ_DB_PASSWORD
+- secret/traefik-acme
+  - acme.json
