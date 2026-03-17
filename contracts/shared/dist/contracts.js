@@ -2,6 +2,7 @@ import { z } from 'zod';
 export const FIXED_ROLES = ['admin', 'coordenador', 'tecnico'];
 export const BFF_ERROR_CODES = [
     'OIDC_CALLBACK_INVALID',
+    'INVALID_REQUEST',
     'SESSION_NOT_FOUND',
     'SESSION_EXPIRED',
     'TOKEN_REFRESH_FAILED',

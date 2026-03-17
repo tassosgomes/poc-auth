@@ -1,5 +1,5 @@
-import type { UserSession } from '@zcorp/shared-contracts';
-import type { OidcClient, OidcFlowTransaction, OidcTransactionStore, PermissionLookupInput, PermissionReader, SessionStore, TokenSet } from '../types.js';
+import type { FixedRole, RoleAccessConfig, UserSession } from '@zcorp/shared-contracts';
+import type { OidcClient, OidcFlowTransaction, OidcTransactionStore, PermissionLookupInput, PermissionService, RoleAccessUpdateCommand, SessionStore, TokenSet } from '../types.js';
 export declare class InMemorySessionStore implements SessionStore {
     private readonly sessions;
     get(sessionId: string): Promise<UserSession | null>;
@@ -22,8 +22,9 @@ export declare class FakeOidcClient implements OidcClient {
     refresh(): Promise<TokenSet>;
     validateIdToken(idToken: string): Promise<Record<string, unknown>>;
 }
-export declare class StaticPermissionReader implements PermissionReader {
+export declare class StaticPermissionService implements PermissionService {
     private readonly snapshotFactory;
+    private readonly roleAccess;
     constructor(snapshotFactory: (input: PermissionLookupInput) => Record<string, unknown>);
     getEffectivePermissions(input: PermissionLookupInput): Promise<{
         permissions: string[];
@@ -42,4 +43,6 @@ export declare class StaticPermissionReader implements PermissionReader {
         roles: ("admin" | "coordenador" | "tecnico")[];
         generatedAt: string;
     }>;
+    listRoleAccess(): Promise<RoleAccessConfig[]>;
+    updateRoleAccess(role: FixedRole, command: RoleAccessUpdateCommand): Promise<RoleAccessConfig>;
 }

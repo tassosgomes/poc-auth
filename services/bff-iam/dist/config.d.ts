@@ -15,6 +15,8 @@ export declare function loadConfig(env?: NodeJS.ProcessEnv): {
     oidcTransactionTtlSeconds: number;
     refreshLockTtlMs: number;
     accessTokenRefreshSkewSeconds: number;
+    permissionSnapshotCacheTtlSeconds: number;
+    roleAccessCacheTtlSeconds: number;
     oidcAuthorizationEndpoint: string;
     oidcTokenEndpoint: string;
     oidcIssuerUrl: string;
@@ -28,5 +30,21 @@ export declare function loadConfig(env?: NodeJS.ProcessEnv): {
     redisUsername: string | undefined;
     redisPassword: string | undefined;
     redisTlsEnabled: boolean;
+    authzDbHost: string;
+    authzDbPort: number;
+    authzDbName: string;
+    authzDbUser: string;
+    authzDbPassword: string;
+    authzDbSslMode: "disable" | "require";
 };
 export declare function buildRedisUrl(config: Pick<BffConfig, 'redisHost' | 'redisPort' | 'redisUsername' | 'redisPassword' | 'redisTlsEnabled'>): string;
+export declare function buildDatabaseConfig(config: Pick<BffConfig, 'authzDbHost' | 'authzDbPort' | 'authzDbName' | 'authzDbUser' | 'authzDbPassword' | 'authzDbSslMode'>): {
+    host: string;
+    port: number;
+    database: string;
+    user: string;
+    password: string;
+    ssl: boolean | {
+        rejectUnauthorized: boolean;
+    };
+};

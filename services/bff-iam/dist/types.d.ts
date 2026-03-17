@@ -1,4 +1,4 @@
-import type { FixedRole, PermissionSnapshot, UserSession } from '@zcorp/shared-contracts';
+import type { FixedRole, RoleAccessConfig, PermissionSnapshot, UserSession } from '@zcorp/shared-contracts';
 export interface AuthorizationRequest {
     state: string;
     nonce: string;
@@ -44,11 +44,21 @@ export interface OidcTransactionStore {
 }
 export interface PermissionLookupInput {
     userId: string;
-    roles: FixedRole[];
+    roles: string[];
     sessionVersion: number;
 }
-export interface PermissionReader {
+export interface RoleAccessUpdateCommand {
+    permissions: string[];
+    screens: string[];
+    routes: string[];
+    microfrontends: string[];
+    updatedBy: string;
+    correlationId: string;
+}
+export interface PermissionService {
     getEffectivePermissions(input: PermissionLookupInput): Promise<PermissionSnapshot>;
+    listRoleAccess(): Promise<RoleAccessConfig[]>;
+    updateRoleAccess(role: FixedRole, command: RoleAccessUpdateCommand): Promise<RoleAccessConfig>;
 }
 export interface OidcClient {
     createAuthorizationUrl(input: AuthorizationRequest): Promise<string>;

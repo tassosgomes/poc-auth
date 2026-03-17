@@ -59,12 +59,66 @@ export class FakeOidcClient {
         };
     }
 }
-export class StaticPermissionReader {
+const DEFAULT_ROLE_ACCESS = [
+    {
+        role: 'admin',
+        permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
+        screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+        routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
+        microfrontends: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+        updatedAt: '2026-03-17T00:00:00.000Z',
+        updatedBy: 'test-double',
+        version: 1
+    },
+    {
+        role: 'coordenador',
+        permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
+        screens: ['dashboard', 'ordens', 'relatorios'],
+        routes: ['/dashboard', '/ordens', '/relatorios'],
+        microfrontends: ['dashboard', 'ordens', 'relatorios'],
+        updatedAt: '2026-03-17T00:00:00.000Z',
+        updatedBy: 'test-double',
+        version: 1
+    },
+    {
+        role: 'tecnico',
+        permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
+        screens: ['dashboard', 'ordens', 'relatorios'],
+        routes: ['/dashboard', '/ordens', '/relatorios'],
+        microfrontends: ['dashboard', 'ordens', 'relatorios'],
+        updatedAt: '2026-03-17T00:00:00.000Z',
+        updatedBy: 'test-double',
+        version: 1
+    }
+];
+export class StaticPermissionService {
     snapshotFactory;
+    roleAccess = new Map();
     constructor(snapshotFactory) {
         this.snapshotFactory = snapshotFactory;
+        DEFAULT_ROLE_ACCESS.forEach((entry) => {
+            this.roleAccess.set(entry.role, entry);
+        });
     }
     async getEffectivePermissions(input) {
         return this.snapshotFactory(input);
+    }
+    async listRoleAccess() {
+        return Array.from(this.roleAccess.values());
+    }
+    async updateRoleAccess(role, command) {
+        const current = this.roleAccess.get(role);
+        const next = {
+            role,
+            permissions: [...command.permissions],
+            screens: [...command.screens],
+            routes: [...command.routes],
+            microfrontends: [...command.microfrontends],
+            updatedAt: '2026-03-17T12:00:00.000Z',
+            updatedBy: command.updatedBy,
+            version: current ? current.version + 1 : 1
+        };
+        this.roleAccess.set(role, next);
+        return next;
     }
 }

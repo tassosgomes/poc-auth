@@ -1,9 +1,11 @@
 import cookie from '@fastify/cookie';
 import {
+  RoleSchema,
   extractNormalizedRoles,
   type UserSession
 } from '@zcorp/shared-contracts';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import { z } from 'zod';
 
 import type { BffConfig } from './config.js';
 import { BffAppError, isBffAppError, toErrorEnvelope } from './errors.js';
@@ -12,7 +14,7 @@ import { createCodeChallenge, generateRandomToken } from './oidc/pkce.js';
 import type {
   OidcClient,
   OidcTransactionStore,
-  PermissionReader,
+  PermissionService,
   SessionStore
 } from './types.js';
 import { clearSessionCookie, setSessionCookie } from './utils/cookies.js';
@@ -24,12 +26,19 @@ export interface BuildAppOptions {
   config: BffConfig;
   sessionStore: SessionStore;
   oidcTransactionStore: OidcTransactionStore;
-  permissionReader: PermissionReader;
+  permissionService: PermissionService;
   oidcClient?: OidcClient;
   fetchImpl?: FetchLike;
   clock?: () => number;
   logger?: boolean;
 }
+
+const UpdateRoleAccessBodySchema = z.object({
+  permissions: z.array(z.string().min(1)),
+  screens: z.array(z.string().min(1)),
+  routes: z.array(z.string().min(1)),
+  microfrontends: z.array(z.string().min(1))
+});
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
@@ -139,10 +148,30 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   app.get('/api/permissions', async (request) => {
     const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now);
-    return options.permissionReader.getEffectivePermissions({
+    return options.permissionService.getEffectivePermissions({
       userId: session.userId,
       roles: session.roles,
       sessionVersion: session.version
+    });
+  });
+
+  app.get('/api/admin/role-access', async (request) => {
+    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now);
+    await requirePermission(session, options.permissionService, 'role-access:manage');
+    return options.permissionService.listRoleAccess();
+  });
+
+  app.put('/api/admin/role-access/:role', async (request) => {
+    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now);
+    await requirePermission(session, options.permissionService, 'role-access:manage');
+
+    const role = RoleSchema.parse((request.params as { role?: string }).role);
+    const payload = UpdateRoleAccessBodySchema.parse(request.body ?? {});
+
+    return options.permissionService.updateRoleAccess(role, {
+      ...payload,
+      updatedBy: session.userId,
+      correlationId: request.id
     });
   });
 
@@ -240,6 +269,25 @@ async function ensureFreshSession(
     await sessionStore.save(refreshedSession);
     return refreshedSession;
   });
+}
+
+async function requirePermission(
+  session: UserSession,
+  permissionService: PermissionService,
+  permission: string
+): Promise<void> {
+  const snapshot = await permissionService.getEffectivePermissions({
+    userId: session.userId,
+    roles: session.roles,
+    sessionVersion: session.version
+  });
+
+  if (!snapshot.permissions.includes(permission)) {
+    throw new BffAppError('FORBIDDEN', 403, 'Authenticated user does not have the required permission', {
+      permission,
+      userId: session.userId
+    });
+  }
 }
 
 async function proxyRequest(

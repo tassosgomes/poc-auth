@@ -1,0 +1,42 @@
+insert into role_access (
+  role,
+  permissions_json,
+  screens_json,
+  routes_json,
+  microfrontends_json,
+  version,
+  updated_at,
+  updated_by
+)
+values
+  (
+    'admin',
+    '["dashboard:view","ordens:view","relatorios:view","role-access:manage"]'::jsonb,
+    '["dashboard","ordens","relatorios","admin-acessos"]'::jsonb,
+    '["/dashboard","/ordens","/relatorios","/admin/acessos"]'::jsonb,
+    '["dashboard","ordens","relatorios","admin-acessos"]'::jsonb,
+    1,
+    '2026-03-17T00:00:00.000Z'::timestamptz,
+    'seed:task-1.0'
+  ),
+  (
+    'coordenador',
+    '["dashboard:view","ordens:view","relatorios:view"]'::jsonb,
+    '["dashboard","ordens","relatorios"]'::jsonb,
+    '["/dashboard","/ordens","/relatorios"]'::jsonb,
+    '["dashboard","ordens","relatorios"]'::jsonb,
+    1,
+    '2026-03-17T00:00:00.000Z'::timestamptz,
+    'seed:task-1.0'
+  ),
+  (
+    'tecnico',
+    '["dashboard:view","ordens:view","relatorios:view"]'::jsonb,
+    '["dashboard","ordens","relatorios"]'::jsonb,
+    '["/dashboard","/ordens","/relatorios"]'::jsonb,
+    '["dashboard","ordens","relatorios"]'::jsonb,
+    1,
+    '2026-03-17T00:00:00.000Z'::timestamptz,
+    'seed:task-1.0'
+  )
+on conflict (role) do nothing;

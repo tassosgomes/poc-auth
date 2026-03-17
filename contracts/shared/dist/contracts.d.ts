@@ -1,6 +1,6 @@
 import { z } from 'zod';
 export declare const FIXED_ROLES: readonly ["admin", "coordenador", "tecnico"];
-export declare const BFF_ERROR_CODES: readonly ["OIDC_CALLBACK_INVALID", "SESSION_NOT_FOUND", "SESSION_EXPIRED", "TOKEN_REFRESH_FAILED", "FORBIDDEN", "SESSION_STORE_UNAVAILABLE", "UPSTREAM_ERROR"];
+export declare const BFF_ERROR_CODES: readonly ["OIDC_CALLBACK_INVALID", "INVALID_REQUEST", "SESSION_NOT_FOUND", "SESSION_EXPIRED", "TOKEN_REFRESH_FAILED", "FORBIDDEN", "SESSION_STORE_UNAVAILABLE", "UPSTREAM_ERROR"];
 export declare const RoleSchema: z.ZodEnum<["admin", "coordenador", "tecnico"]>;
 export type FixedRole = z.infer<typeof RoleSchema>;
 export declare const MicrofrontendCatalogItemSchema: z.ZodObject<{
@@ -177,24 +177,24 @@ export declare const PermissionDecisionSchema: z.ZodObject<{
     reason: string;
 }>;
 export type PermissionDecision = z.infer<typeof PermissionDecisionSchema>;
-export declare const BffErrorCodeSchema: z.ZodEnum<["OIDC_CALLBACK_INVALID", "SESSION_NOT_FOUND", "SESSION_EXPIRED", "TOKEN_REFRESH_FAILED", "FORBIDDEN", "SESSION_STORE_UNAVAILABLE", "UPSTREAM_ERROR"]>;
+export declare const BffErrorCodeSchema: z.ZodEnum<["OIDC_CALLBACK_INVALID", "INVALID_REQUEST", "SESSION_NOT_FOUND", "SESSION_EXPIRED", "TOKEN_REFRESH_FAILED", "FORBIDDEN", "SESSION_STORE_UNAVAILABLE", "UPSTREAM_ERROR"]>;
 export type BffErrorCode = z.infer<typeof BffErrorCodeSchema>;
 export declare const BffErrorEnvelopeSchema: z.ZodObject<{
-    code: z.ZodEnum<["OIDC_CALLBACK_INVALID", "SESSION_NOT_FOUND", "SESSION_EXPIRED", "TOKEN_REFRESH_FAILED", "FORBIDDEN", "SESSION_STORE_UNAVAILABLE", "UPSTREAM_ERROR"]>;
+    code: z.ZodEnum<["OIDC_CALLBACK_INVALID", "INVALID_REQUEST", "SESSION_NOT_FOUND", "SESSION_EXPIRED", "TOKEN_REFRESH_FAILED", "FORBIDDEN", "SESSION_STORE_UNAVAILABLE", "UPSTREAM_ERROR"]>;
     message: z.ZodString;
     status: z.ZodNumber;
     details: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
     traceId: z.ZodOptional<z.ZodString>;
     timestamp: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    code: "OIDC_CALLBACK_INVALID" | "SESSION_NOT_FOUND" | "SESSION_EXPIRED" | "TOKEN_REFRESH_FAILED" | "FORBIDDEN" | "SESSION_STORE_UNAVAILABLE" | "UPSTREAM_ERROR";
+    code: "OIDC_CALLBACK_INVALID" | "INVALID_REQUEST" | "SESSION_NOT_FOUND" | "SESSION_EXPIRED" | "TOKEN_REFRESH_FAILED" | "FORBIDDEN" | "SESSION_STORE_UNAVAILABLE" | "UPSTREAM_ERROR";
     message: string;
     status: number;
     timestamp: string;
     details?: Record<string, unknown> | undefined;
     traceId?: string | undefined;
 }, {
-    code: "OIDC_CALLBACK_INVALID" | "SESSION_NOT_FOUND" | "SESSION_EXPIRED" | "TOKEN_REFRESH_FAILED" | "FORBIDDEN" | "SESSION_STORE_UNAVAILABLE" | "UPSTREAM_ERROR";
+    code: "OIDC_CALLBACK_INVALID" | "INVALID_REQUEST" | "SESSION_NOT_FOUND" | "SESSION_EXPIRED" | "TOKEN_REFRESH_FAILED" | "FORBIDDEN" | "SESSION_STORE_UNAVAILABLE" | "UPSTREAM_ERROR";
     message: string;
     status: number;
     timestamp: string;

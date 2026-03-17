@@ -1,4 +1,5 @@
-import { MICROFRONTEND_CATALOG_SEED, ROLE_ACCESS_SEED } from '@zcorp/shared-contracts';
+import { FIXED_ROLES, MICROFRONTEND_CATALOG_SEED, ROLE_ACCESS_SEED } from '@zcorp/shared-contracts';
+import { BffAppError } from '../errors.js';
 function collectUnique(values) {
     return Array.from(new Set(values));
 }
@@ -13,7 +14,7 @@ export class SeedPermissionReader {
         const microfrontendIds = new Set(roleAccess.flatMap((entry) => entry.microfrontends));
         return {
             userId: input.userId,
-            roles: input.roles,
+            roles: roleAccess.map((entry) => entry.role),
             permissions,
             screens,
             routes,
@@ -21,5 +22,11 @@ export class SeedPermissionReader {
             generatedAt: new Date().toISOString(),
             version: input.sessionVersion
         };
+    }
+    async listRoleAccess() {
+        return FIXED_ROLES.map((role) => ROLE_ACCESS_SEED.find((entry) => entry.role === role)).filter((entry) => Boolean(entry));
+    }
+    async updateRoleAccess(_role, _command) {
+        throw new BffAppError('UPSTREAM_ERROR', 500, 'SeedPermissionReader is read-only and should not be used for administrative updates');
     }
 }

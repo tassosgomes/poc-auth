@@ -32,6 +32,8 @@ const EnvSchema = z.object({
   BFF_OIDC_TRANSACTION_TTL_SECONDS: z.coerce.number().int().positive().default(600),
   BFF_REFRESH_LOCK_TTL_MS: z.coerce.number().int().positive().default(5000),
   BFF_ACCESS_TOKEN_REFRESH_SKEW_SECONDS: z.coerce.number().int().min(0).default(30),
+  BFF_PERMISSION_SNAPSHOT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  BFF_ROLE_ACCESS_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   OIDC_AUTHORIZATION_ENDPOINT: z.string().url(),
   OIDC_TOKEN_ENDPOINT: z.string().url(),
   OIDC_ISSUER_URL: z.string().url(),
@@ -44,7 +46,13 @@ const EnvSchema = z.object({
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
   REDIS_USERNAME: z.string().optional(),
   REDIS_PASSWORD: z.string().optional(),
-  REDIS_TLS_ENABLED: z.preprocess((value) => parseBoolean(value, false), z.boolean())
+  REDIS_TLS_ENABLED: z.preprocess((value) => parseBoolean(value, false), z.boolean()),
+  AUTHZ_DB_HOST: z.string().min(1).default('authz-db'),
+  AUTHZ_DB_PORT: z.coerce.number().int().positive().default(5432),
+  AUTHZ_DB_NAME: z.string().min(1).default('iam_authz'),
+  AUTHZ_DB_USER: z.string().min(1),
+  AUTHZ_DB_PASSWORD: z.string().min(1),
+  AUTHZ_DB_SSL_MODE: z.enum(['disable', 'require']).default('disable')
 });
 
 export type BffConfig = ReturnType<typeof loadConfig>;
@@ -68,6 +76,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     oidcTransactionTtlSeconds: parsed.BFF_OIDC_TRANSACTION_TTL_SECONDS,
     refreshLockTtlMs: parsed.BFF_REFRESH_LOCK_TTL_MS,
     accessTokenRefreshSkewSeconds: parsed.BFF_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
+    permissionSnapshotCacheTtlSeconds: parsed.BFF_PERMISSION_SNAPSHOT_CACHE_TTL_SECONDS,
+    roleAccessCacheTtlSeconds: parsed.BFF_ROLE_ACCESS_CACHE_TTL_SECONDS,
     oidcAuthorizationEndpoint: parsed.OIDC_AUTHORIZATION_ENDPOINT,
     oidcTokenEndpoint: parsed.OIDC_TOKEN_ENDPOINT,
     oidcIssuerUrl: parsed.OIDC_ISSUER_URL,
@@ -80,7 +90,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     redisPort: parsed.REDIS_PORT,
     redisUsername: parsed.REDIS_USERNAME,
     redisPassword: parsed.REDIS_PASSWORD,
-    redisTlsEnabled: parsed.REDIS_TLS_ENABLED
+    redisTlsEnabled: parsed.REDIS_TLS_ENABLED,
+    authzDbHost: parsed.AUTHZ_DB_HOST,
+    authzDbPort: parsed.AUTHZ_DB_PORT,
+    authzDbName: parsed.AUTHZ_DB_NAME,
+    authzDbUser: parsed.AUTHZ_DB_USER,
+    authzDbPassword: parsed.AUTHZ_DB_PASSWORD,
+    authzDbSslMode: parsed.AUTHZ_DB_SSL_MODE
   };
 }
 
@@ -97,4 +113,20 @@ export function buildRedisUrl(config: Pick<BffConfig, 'redisHost' | 'redisPort' 
   }
 
   return url.toString();
+}
+
+export function buildDatabaseConfig(
+  config: Pick<
+    BffConfig,
+    'authzDbHost' | 'authzDbPort' | 'authzDbName' | 'authzDbUser' | 'authzDbPassword' | 'authzDbSslMode'
+  >
+) {
+  return {
+    host: config.authzDbHost,
+    port: config.authzDbPort,
+    database: config.authzDbName,
+    user: config.authzDbUser,
+    password: config.authzDbPassword,
+    ssl: config.authzDbSslMode === 'require' ? { rejectUnauthorized: false } : false
+  };
 }

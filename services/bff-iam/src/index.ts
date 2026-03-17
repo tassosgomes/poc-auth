@@ -1,12 +1,23 @@
+import { Pool } from 'pg';
 import { createClient } from 'redis';
 
 import { buildApp } from './app.js';
-import { buildRedisUrl, loadConfig } from './config.js';
+import { migrateAuthzDatabase } from './db/migrations.js';
+import { buildDatabaseConfig, buildRedisUrl, loadConfig } from './config.js';
+import { RoleAccessRepository } from './repositories/role-access-repository.js';
 import { RedisOidcTransactionStore } from './session/redis-oidc-transaction-store.js';
 import { RedisSessionStore } from './session/redis-session-store.js';
-import { SeedPermissionReader } from './services/seed-permission-reader.js';
+import { RoleAccessPermissionService } from './services/permission-service.js';
 
 const config = loadConfig();
+
+const database = new Pool(buildDatabaseConfig(config));
+
+database.on('error', (error) => {
+  console.error('Authz database pool error', error);
+});
+
+await migrateAuthzDatabase(database);
 
 const redis = createClient({
   url: buildRedisUrl(config)
@@ -18,11 +29,18 @@ redis.on('error', (error) => {
 
 await redis.connect();
 
+const permissionService = new RoleAccessPermissionService(
+  new RoleAccessRepository(database),
+  redis,
+  config,
+  console
+);
+
 const app = await buildApp({
   config,
   sessionStore: new RedisSessionStore(redis, config),
   oidcTransactionStore: new RedisOidcTransactionStore(redis, config),
-  permissionReader: new SeedPermissionReader(),
+  permissionService,
   logger: true
 });
 

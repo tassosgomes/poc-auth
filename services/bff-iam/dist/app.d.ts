@@ -1,12 +1,12 @@
 import { type FastifyInstance } from 'fastify';
 import type { BffConfig } from './config.js';
-import type { OidcClient, OidcTransactionStore, PermissionReader, SessionStore } from './types.js';
+import type { OidcClient, OidcTransactionStore, PermissionService, SessionStore } from './types.js';
 type FetchLike = typeof fetch;
 export interface BuildAppOptions {
     config: BffConfig;
     sessionStore: SessionStore;
     oidcTransactionStore: OidcTransactionStore;
-    permissionReader: PermissionReader;
+    permissionService: PermissionService;
     oidcClient?: OidcClient;
     fetchImpl?: FetchLike;
     clock?: () => number;

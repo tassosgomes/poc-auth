@@ -1,11 +1,12 @@
-import type { UserSession } from '@zcorp/shared-contracts';
+import type { FixedRole, RoleAccessConfig, UserSession } from '@zcorp/shared-contracts';
 
 import type {
   OidcClient,
   OidcFlowTransaction,
   OidcTransactionStore,
   PermissionLookupInput,
-  PermissionReader,
+  PermissionService,
+  RoleAccessUpdateCommand,
   SessionStore,
   TokenSet
 } from '../types.js';
@@ -84,10 +85,70 @@ export class FakeOidcClient implements OidcClient {
   }
 }
 
-export class StaticPermissionReader implements PermissionReader {
-  constructor(private readonly snapshotFactory: (input: PermissionLookupInput) => Record<string, unknown>) {}
+const DEFAULT_ROLE_ACCESS: RoleAccessConfig[] = [
+  {
+    role: 'admin',
+    permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
+    screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+    routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
+    microfrontends: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+    updatedAt: '2026-03-17T00:00:00.000Z',
+    updatedBy: 'test-double',
+    version: 1
+  },
+  {
+    role: 'coordenador',
+    permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
+    screens: ['dashboard', 'ordens', 'relatorios'],
+    routes: ['/dashboard', '/ordens', '/relatorios'],
+    microfrontends: ['dashboard', 'ordens', 'relatorios'],
+    updatedAt: '2026-03-17T00:00:00.000Z',
+    updatedBy: 'test-double',
+    version: 1
+  },
+  {
+    role: 'tecnico',
+    permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
+    screens: ['dashboard', 'ordens', 'relatorios'],
+    routes: ['/dashboard', '/ordens', '/relatorios'],
+    microfrontends: ['dashboard', 'ordens', 'relatorios'],
+    updatedAt: '2026-03-17T00:00:00.000Z',
+    updatedBy: 'test-double',
+    version: 1
+  }
+];
+
+export class StaticPermissionService implements PermissionService {
+  private readonly roleAccess = new Map<FixedRole, RoleAccessConfig>();
+
+  constructor(private readonly snapshotFactory: (input: PermissionLookupInput) => Record<string, unknown>) {
+    DEFAULT_ROLE_ACCESS.forEach((entry) => {
+      this.roleAccess.set(entry.role, entry);
+    });
+  }
 
   async getEffectivePermissions(input: PermissionLookupInput) {
-    return this.snapshotFactory(input) as Awaited<ReturnType<PermissionReader['getEffectivePermissions']>>;
+    return this.snapshotFactory(input) as Awaited<ReturnType<PermissionService['getEffectivePermissions']>>;
+  }
+
+  async listRoleAccess(): Promise<RoleAccessConfig[]> {
+    return Array.from(this.roleAccess.values());
+  }
+
+  async updateRoleAccess(role: FixedRole, command: RoleAccessUpdateCommand): Promise<RoleAccessConfig> {
+    const current = this.roleAccess.get(role);
+    const next: RoleAccessConfig = {
+      role,
+      permissions: [...command.permissions],
+      screens: [...command.screens],
+      routes: [...command.routes],
+      microfrontends: [...command.microfrontends],
+      updatedAt: '2026-03-17T12:00:00.000Z',
+      updatedBy: command.updatedBy,
+      version: current ? current.version + 1 : 1
+    };
+
+    this.roleAccess.set(role, next);
+    return next;
   }
 }

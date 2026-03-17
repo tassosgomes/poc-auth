@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
 import { BffAppError } from '../errors.js';
-import { InMemoryOidcTransactionStore, InMemorySessionStore, StaticPermissionReader } from './test-doubles.js';
+import { InMemoryOidcTransactionStore, InMemorySessionStore, StaticPermissionService } from './test-doubles.js';
 function buildConfig() {
     return {
         nodeEnv: 'test',
@@ -19,6 +19,8 @@ function buildConfig() {
         oidcTransactionTtlSeconds: 600,
         refreshLockTtlMs: 5000,
         accessTokenRefreshSkewSeconds: 30,
+        permissionSnapshotCacheTtlSeconds: 300,
+        roleAccessCacheTtlSeconds: 3600,
         oidcAuthorizationEndpoint: 'https://cyberark.example/authorize',
         oidcTokenEndpoint: 'https://cyberark.example/token',
         oidcIssuerUrl: 'https://cyberark.example',
@@ -31,7 +33,13 @@ function buildConfig() {
         redisPort: 6379,
         redisUsername: undefined,
         redisPassword: undefined,
-        redisTlsEnabled: false
+        redisTlsEnabled: false,
+        authzDbHost: 'localhost',
+        authzDbPort: 5432,
+        authzDbName: 'iam_authz',
+        authzDbUser: 'postgres',
+        authzDbPassword: 'postgres',
+        authzDbSslMode: 'disable'
     };
 }
 function createValidatedClaims(overrides = {}) {
@@ -65,8 +73,8 @@ function createOidcClientStub(overrides = {}) {
         ...overrides
     };
 }
-function createPermissionReader() {
-    return new StaticPermissionReader((input) => ({
+function createPermissionService(snapshotOverrides = {}) {
+    return new StaticPermissionService((input) => ({
         userId: input.userId,
         roles: input.roles,
         permissions: ['dashboard:view'],
@@ -74,7 +82,8 @@ function createPermissionReader() {
         routes: ['/dashboard'],
         microfrontends: [],
         generatedAt: new Date().toISOString(),
-        version: input.sessionVersion
+        version: input.sessionVersion,
+        ...snapshotOverrides
     }));
 }
 describe('BFF app integration', () => {
@@ -88,7 +97,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore,
             oidcTransactionStore: transactionStore,
-            permissionReader: new StaticPermissionReader((input) => ({
+            permissionService: new StaticPermissionService((input) => ({
                 userId: input.userId,
                 roles: input.roles,
                 permissions: [],
@@ -110,7 +119,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore: new InMemorySessionStore(),
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub()
         });
         const response = await app.inject({
@@ -138,7 +147,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore,
             oidcTransactionStore: transactionStore,
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub()
         });
         const response = await app.inject({
@@ -188,7 +197,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore,
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub(),
             fetchImpl
         });
@@ -224,7 +233,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore: new InMemorySessionStore(),
             oidcTransactionStore: transactionStore,
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient
         });
         const response = await app.inject({
@@ -243,7 +252,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore: new InMemorySessionStore(),
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub()
         });
         const response = await app.inject({ method: 'GET', url: '/api/permissions' });
@@ -275,7 +284,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore,
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub()
         });
         const response = await app.inject({
@@ -310,7 +319,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore: unavailableStore,
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub()
         });
         const response = await app.inject({
@@ -351,7 +360,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore,
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub(),
             fetchImpl
         });
@@ -388,7 +397,7 @@ describe('BFF app integration', () => {
             config: buildConfig(),
             sessionStore,
             oidcTransactionStore: new InMemoryOidcTransactionStore(),
-            permissionReader: createPermissionReader(),
+            permissionService: createPermissionService(),
             oidcClient: createOidcClientStub(),
             fetchImpl: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED'))
         });
@@ -403,6 +412,125 @@ describe('BFF app integration', () => {
         expect(response.json()).toMatchObject({
             code: 'UPSTREAM_ERROR',
             status: 502
+        });
+        await app.close();
+    });
+    it('returns the role access matrix for users with the administrative permission', async () => {
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'admin-session',
+            userId: 'admin-user',
+            roles: ['admin'],
+            accessToken: 'access-123',
+            refreshToken: 'refresh-123',
+            idToken: 'signed-id-token',
+            accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
+            refreshTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+            absoluteExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+            createdAt: Math.floor(Date.now() / 1000),
+            lastAccessAt: Math.floor(Date.now() / 1000),
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService({ permissions: ['dashboard:view', 'role-access:manage'] }),
+            oidcClient: createOidcClientStub()
+        });
+        const response = await app.inject({
+            method: 'GET',
+            url: '/api/admin/role-access',
+            cookies: {
+                session_id: 'admin-session'
+            }
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual(expect.arrayContaining([
+            expect.objectContaining({ role: 'admin' }),
+            expect.objectContaining({ role: 'coordenador' }),
+            expect.objectContaining({ role: 'tecnico' })
+        ]));
+        await app.close();
+    });
+    it('rejects the admin role access endpoint without the administrative permission', async () => {
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'coord-session',
+            userId: 'coord-user',
+            roles: ['coordenador'],
+            accessToken: 'access-123',
+            refreshToken: 'refresh-123',
+            idToken: 'signed-id-token',
+            accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
+            refreshTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+            absoluteExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+            createdAt: Math.floor(Date.now() / 1000),
+            lastAccessAt: Math.floor(Date.now() / 1000),
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService(),
+            oidcClient: createOidcClientStub()
+        });
+        const response = await app.inject({
+            method: 'GET',
+            url: '/api/admin/role-access',
+            cookies: {
+                session_id: 'coord-session'
+            }
+        });
+        expect(response.statusCode).toBe(403);
+        expect(response.json()).toMatchObject({
+            code: 'FORBIDDEN',
+            status: 403
+        });
+        await app.close();
+    });
+    it('updates the role access matrix through the admin endpoint', async () => {
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'admin-update-session',
+            userId: 'admin-user',
+            roles: ['admin'],
+            accessToken: 'access-123',
+            refreshToken: 'refresh-123',
+            idToken: 'signed-id-token',
+            accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 300,
+            refreshTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+            absoluteExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+            createdAt: Math.floor(Date.now() / 1000),
+            lastAccessAt: Math.floor(Date.now() / 1000),
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService({ permissions: ['dashboard:view', 'role-access:manage'] }),
+            oidcClient: createOidcClientStub()
+        });
+        const response = await app.inject({
+            method: 'PUT',
+            url: '/api/admin/role-access/tecnico',
+            cookies: {
+                session_id: 'admin-update-session'
+            },
+            payload: {
+                permissions: ['dashboard:view', 'ordens:view'],
+                screens: ['dashboard', 'ordens'],
+                routes: ['/dashboard', '/ordens'],
+                microfrontends: ['dashboard', 'ordens']
+            }
+        });
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toMatchObject({
+            role: 'tecnico',
+            permissions: ['dashboard:view', 'ordens:view'],
+            updatedBy: 'admin-user'
         });
         await app.close();
     });

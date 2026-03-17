@@ -1,4 +1,5 @@
 import type { BffErrorCode, BffErrorEnvelope } from '@zcorp/shared-contracts';
+import { ZodError } from 'zod';
 
 export class BffAppError extends Error {
   constructor(
@@ -23,6 +24,23 @@ export function toErrorEnvelope(error: unknown, traceId?: string): BffErrorEnvel
       message: error.message,
       status: error.status,
       details: error.details,
+      traceId,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  if (error instanceof ZodError) {
+    return {
+      code: 'INVALID_REQUEST',
+      message: 'Request validation failed',
+      status: 400,
+      details: {
+        issues: error.issues.map((issue) => ({
+          path: issue.path,
+          message: issue.message,
+          code: issue.code
+        }))
+      },
       traceId,
       timestamp: new Date().toISOString()
     };

@@ -1,3 +1,4 @@
+import { ZodError } from 'zod';
 export class BffAppError extends Error {
     code;
     status;
@@ -20,6 +21,22 @@ export function toErrorEnvelope(error, traceId) {
             message: error.message,
             status: error.status,
             details: error.details,
+            traceId,
+            timestamp: new Date().toISOString()
+        };
+    }
+    if (error instanceof ZodError) {
+        return {
+            code: 'INVALID_REQUEST',
+            message: 'Request validation failed',
+            status: 400,
+            details: {
+                issues: error.issues.map((issue) => ({
+                    path: issue.path,
+                    message: issue.message,
+                    code: issue.code
+                }))
+            },
             traceId,
             timestamp: new Date().toISOString()
         };

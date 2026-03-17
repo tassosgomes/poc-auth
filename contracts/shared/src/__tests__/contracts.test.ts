@@ -47,6 +47,7 @@ describe('shared contracts', () => {
   it('validates mandatory BFF error codes in canonical envelope', () => {
     expect(BFF_ERROR_CODES).toEqual([
       'OIDC_CALLBACK_INVALID',
+      'INVALID_REQUEST',
       'SESSION_NOT_FOUND',
       'SESSION_EXPIRED',
       'TOKEN_REFRESH_FAILED',
