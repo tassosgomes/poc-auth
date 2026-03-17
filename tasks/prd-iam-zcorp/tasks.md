@@ -21,7 +21,7 @@ Fecha lacunas de refresh concorrente, logout global, observabilidade, conteineri
 ## Tarefas
 
 - [x] 1.0 Definir contratos compartilhados e baseline de ambiente
-- [ ] 2.0 Implementar autenticacao OIDC e sessao stateful no BFF
+- [x] 2.0 Implementar autenticacao OIDC e sessao stateful no BFF
 - [ ] 3.0 Implementar matriz dinamica de acessos e administracao no BFF
 - [ ] 4.0 Construir shell React com bootstrap de sessao e navegacao protegida
 - [ ] 5.0 Entregar microfrontends remotos com carregamento autorizado
