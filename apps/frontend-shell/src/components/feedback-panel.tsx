@@ -17,6 +17,7 @@ interface FeedbackPanelProps {
   title: string;
   message: string;
   tone?: Tone;
+  correlationId?: string;
   traceId?: string;
   details?: ReactNode;
   linkAction?: ActionLink;
@@ -28,6 +29,7 @@ export function FeedbackPanel({
   title,
   message,
   tone = 'neutral',
+  correlationId,
   traceId,
   details,
   linkAction,
@@ -39,6 +41,7 @@ export function FeedbackPanel({
       <h1>{title}</h1>
       <p className="feedback-panel__message">{message}</p>
       {details ? <div className="feedback-panel__details">{details}</div> : null}
+      {correlationId ? <p className="feedback-panel__trace">CorrelationId: {correlationId}</p> : null}
       {traceId ? <p className="feedback-panel__trace">TraceId: {traceId}</p> : null}
       <div className="feedback-panel__actions">
         {linkAction ? (

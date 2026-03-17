@@ -3,6 +3,7 @@ import { GenericContainer, Wait } from 'testcontainers';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createClient, type RedisClientType } from 'redis';
 
+import { BffAppError } from '../errors.js';
 import { RedisSessionStore } from '../session/redis-session-store.js';
 
 describe('RedisSessionStore integration', () => {
@@ -80,5 +81,71 @@ describe('RedisSessionStore integration', () => {
     await expect(store.deleteAllForUser(userId)).resolves.toBe(2);
     await expect(store.get(longLivedSession.sessionId)).resolves.toBeNull();
     await expect(store.get(shortLivedSession.sessionId)).resolves.toBeNull();
+  });
+
+  it('replaces the session only when the expected version still matches', async () => {
+    const original = {
+      ...USER_SESSION_FIXTURE,
+      accessTokenExpiresAt: 1710001800,
+      refreshTokenExpiresAt: 1710007200,
+      absoluteExpiresAt: 1710007200,
+      createdAt: 1710000000,
+      lastAccessAt: 1710000000,
+      version: 3
+    };
+
+    await store.save(original);
+
+    const rotated = {
+      ...original,
+      accessToken: 'access-token-rotated',
+      refreshToken: 'refresh-token-rotated',
+      idToken: 'id-token-rotated',
+      lastAccessAt: 1710000100,
+      version: 4
+    };
+
+    await expect(store.compareAndSwap(rotated, 3)).resolves.toBe(true);
+    await expect(store.get(original.sessionId)).resolves.toMatchObject({
+      accessToken: 'access-token-rotated',
+      refreshToken: 'refresh-token-rotated',
+      version: 4
+    });
+    await expect(store.compareAndSwap({ ...rotated, version: 5 }, 3)).resolves.toBe(false);
+  });
+
+  it('counts the active sessions currently stored in Redis', async () => {
+    await store.save({
+      ...USER_SESSION_FIXTURE,
+      sessionId: 'session-count-1',
+      accessTokenExpiresAt: 1710001800,
+      refreshTokenExpiresAt: 1710007200,
+      absoluteExpiresAt: 1710007200,
+      createdAt: 1710000000,
+      lastAccessAt: 1710000000
+    });
+    await store.save({
+      ...USER_SESSION_FIXTURE,
+      sessionId: 'session-count-2',
+      accessTokenExpiresAt: 1710001800,
+      refreshTokenExpiresAt: 1710007200,
+      absoluteExpiresAt: 1710007200,
+      createdAt: 1710000000,
+      lastAccessAt: 1710000000
+    });
+
+    await expect(store.countActiveSessions()).resolves.toBe(2);
+  });
+
+  it('preserves functional refresh errors raised inside the critical section', async () => {
+    const refreshError = new BffAppError('TOKEN_REFRESH_FAILED', 401, 'OIDC token refresh failed', {
+      providerError: 'invalid_grant'
+    });
+
+    await expect(
+      store.withRefreshLock('refresh-failure-session', async () => {
+        throw refreshError;
+      })
+    ).rejects.toBe(refreshError);
   });
 });

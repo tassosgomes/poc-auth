@@ -204,6 +204,9 @@ describe('BFF app integration', () => {
         const response = await app.inject({
             method: 'GET',
             url: '/api/java/orders/v1/orders?status=open',
+            headers: {
+                'x-correlation-id': 'corr-proxy-123'
+            },
             cookies: {
                 session_id: 'session-123'
             }
@@ -213,6 +216,8 @@ describe('BFF app integration', () => {
         const [target, init] = fetchImpl.mock.calls[0];
         expect(target.toString()).toBe('http://java-authpoc:8080/orders/v1/orders?status=open');
         expect(new Headers(init.headers).get('authorization')).toBe('Bearer access-123');
+        expect(new Headers(init.headers).get('x-correlation-id')).toBe('corr-proxy-123');
+        expect(response.headers['x-correlation-id']).toBe('corr-proxy-123');
         await app.close();
     });
     it('rejects the callback when id_token validation fails', async () => {
@@ -255,12 +260,21 @@ describe('BFF app integration', () => {
             permissionService: createPermissionService(),
             oidcClient: createOidcClientStub()
         });
-        const response = await app.inject({ method: 'GET', url: '/api/permissions' });
+        const response = await app.inject({
+            method: 'GET',
+            url: '/api/permissions',
+            headers: {
+                'x-correlation-id': 'corr-missing-session'
+            }
+        });
         expect(response.statusCode).toBe(401);
         expect(response.json()).toMatchObject({
             code: 'SESSION_NOT_FOUND',
-            status: 401
+            status: 401,
+            correlationId: 'corr-missing-session',
+            traceId: 'corr-missing-session'
         });
+        expect(response.headers['x-correlation-id']).toBe('corr-missing-session');
         await app.close();
     });
     it('returns 401 and clears the cookie when the session expired', async () => {
@@ -311,8 +325,10 @@ describe('BFF app integration', () => {
         const unavailableStore = {
             get: vi.fn().mockRejectedValue(new BffAppError('SESSION_STORE_UNAVAILABLE', 503, 'Session store unavailable')),
             save: vi.fn(),
+            compareAndSwap: vi.fn(),
             delete: vi.fn(),
             deleteAllForUser: vi.fn(),
+            countActiveSessions: vi.fn().mockResolvedValue(0),
             withRefreshLock: vi.fn()
         };
         const app = await buildApp({
@@ -532,6 +548,296 @@ describe('BFF app integration', () => {
             permissions: ['dashboard:view', 'ordens:view', 'ordens:create'],
             updatedBy: 'admin-user'
         });
+        await app.close();
+    });
+    it('invalidates only the current session on local logout', async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'session-local-1',
+            userId: 'user-logout',
+            roles: ['admin'],
+            accessToken: 'access-1',
+            refreshToken: 'refresh-1',
+            idToken: 'id-1',
+            accessTokenExpiresAt: nowSeconds + 300,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        await sessionStore.save({
+            sessionId: 'session-local-2',
+            userId: 'user-logout',
+            roles: ['admin'],
+            accessToken: 'access-2',
+            refreshToken: 'refresh-2',
+            idToken: 'id-2',
+            accessTokenExpiresAt: nowSeconds + 300,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService(),
+            oidcClient: createOidcClientStub()
+        });
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/logout',
+            cookies: {
+                session_id: 'session-local-1'
+            }
+        });
+        expect(response.statusCode).toBe(204);
+        await expect(sessionStore.get('session-local-1')).resolves.toBeNull();
+        await expect(sessionStore.get('session-local-2')).resolves.not.toBeNull();
+        expect(response.cookies).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                name: 'session_id',
+                value: ''
+            })
+        ]));
+        await app.close();
+    });
+    it('invalidates all user sessions on global logout', async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'session-global-1',
+            userId: 'user-global',
+            roles: ['admin'],
+            accessToken: 'access-1',
+            refreshToken: 'refresh-1',
+            idToken: 'id-1',
+            accessTokenExpiresAt: nowSeconds + 300,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        await sessionStore.save({
+            sessionId: 'session-global-2',
+            userId: 'user-global',
+            roles: ['admin'],
+            accessToken: 'access-2',
+            refreshToken: 'refresh-2',
+            idToken: 'id-2',
+            accessTokenExpiresAt: nowSeconds + 300,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService(),
+            oidcClient: createOidcClientStub()
+        });
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/logout/global',
+            cookies: {
+                session_id: 'session-global-1'
+            }
+        });
+        expect(response.statusCode).toBe(204);
+        await expect(sessionStore.get('session-global-1')).resolves.toBeNull();
+        await expect(sessionStore.get('session-global-2')).resolves.toBeNull();
+        const followUp = await app.inject({
+            method: 'GET',
+            url: '/api/permissions',
+            cookies: {
+                session_id: 'session-global-2'
+            }
+        });
+        expect(followUp.statusCode).toBe(401);
+        expect(followUp.json()).toMatchObject({
+            code: 'SESSION_NOT_FOUND',
+            status: 401
+        });
+        await app.close();
+    });
+    it('serializes concurrent refresh requests without corrupting the session', async () => {
+        class LockedSessionStore extends InMemorySessionStore {
+            refreshLock = null;
+            async withRefreshLock(_sessionId, action, onConflict) {
+                while (this.refreshLock) {
+                    onConflict?.();
+                    await this.refreshLock;
+                }
+                let releaseLock;
+                this.refreshLock = new Promise((resolve) => {
+                    releaseLock = resolve;
+                });
+                try {
+                    return await action();
+                }
+                finally {
+                    releaseLock();
+                    this.refreshLock = null;
+                }
+            }
+        }
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionStore = new LockedSessionStore();
+        await sessionStore.save({
+            sessionId: 'refresh-session',
+            userId: 'user-refresh',
+            roles: ['admin'],
+            accessToken: 'access-stale',
+            refreshToken: 'refresh-stale',
+            idToken: 'id-stale',
+            accessTokenExpiresAt: nowSeconds + 5,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        const oidcClient = createOidcClientStub({
+            refresh: vi.fn().mockImplementation(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 40));
+                return {
+                    accessToken: 'access-refreshed',
+                    refreshToken: 'refresh-rotated',
+                    idToken: 'id-refreshed',
+                    tokenType: 'Bearer',
+                    accessTokenExpiresIn: 300,
+                    refreshTokenExpiresIn: 3600
+                };
+            })
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService(),
+            oidcClient
+        });
+        const [first, second] = await Promise.all([
+            app.inject({
+                method: 'GET',
+                url: '/api/permissions',
+                cookies: {
+                    session_id: 'refresh-session'
+                }
+            }),
+            app.inject({
+                method: 'GET',
+                url: '/api/permissions',
+                cookies: {
+                    session_id: 'refresh-session'
+                }
+            })
+        ]);
+        expect(first.statusCode).toBe(200);
+        expect(second.statusCode).toBe(200);
+        expect(oidcClient.refresh).toHaveBeenCalledTimes(1);
+        await expect(sessionStore.get('refresh-session')).resolves.toMatchObject({
+            accessToken: 'access-refreshed',
+            refreshToken: 'refresh-rotated',
+            version: 2
+        });
+        await app.close();
+    });
+    it('invalidates the session when refresh fails definitively', async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'refresh-failure-session',
+            userId: 'user-refresh-failure',
+            roles: ['admin'],
+            accessToken: 'access-stale',
+            refreshToken: 'refresh-stale',
+            idToken: 'id-stale',
+            accessTokenExpiresAt: nowSeconds + 5,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService(),
+            oidcClient: createOidcClientStub({
+                refresh: vi
+                    .fn()
+                    .mockRejectedValue(new BffAppError('TOKEN_REFRESH_FAILED', 401, 'OIDC token refresh failed', { providerError: 'invalid_grant' }))
+            })
+        });
+        const response = await app.inject({
+            method: 'GET',
+            url: '/api/permissions',
+            cookies: {
+                session_id: 'refresh-failure-session'
+            }
+        });
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toMatchObject({
+            code: 'TOKEN_REFRESH_FAILED',
+            status: 401
+        });
+        expect(response.cookies).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                name: 'session_id',
+                value: ''
+            })
+        ]));
+        await expect(sessionStore.get('refresh-failure-session')).resolves.toBeNull();
+        await app.close();
+    });
+    it('exposes operational metrics with active sessions and permission timings', async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionStore = new InMemorySessionStore();
+        await sessionStore.save({
+            sessionId: 'metrics-session',
+            userId: 'user-metrics',
+            roles: ['admin'],
+            accessToken: 'access-123',
+            refreshToken: 'refresh-123',
+            idToken: 'id-123',
+            accessTokenExpiresAt: nowSeconds + 300,
+            refreshTokenExpiresAt: nowSeconds + 3600,
+            absoluteExpiresAt: nowSeconds + 3600,
+            createdAt: nowSeconds,
+            lastAccessAt: nowSeconds,
+            version: 1
+        });
+        const app = await buildApp({
+            config: buildConfig(),
+            sessionStore,
+            oidcTransactionStore: new InMemoryOidcTransactionStore(),
+            permissionService: createPermissionService(),
+            oidcClient: createOidcClientStub()
+        });
+        await app.inject({
+            method: 'GET',
+            url: '/api/permissions',
+            cookies: {
+                session_id: 'metrics-session'
+            }
+        });
+        const response = await app.inject({ method: 'GET', url: '/metrics' });
+        expect(response.statusCode).toBe(200);
+        expect(response.headers['content-type']).toContain('text/plain');
+        expect(response.body).toContain('iam_token_refresh_total');
+        expect(response.body).toContain('iam_token_refresh_conflicts_total');
+        expect(response.body).toContain('iam_session_active_total 1');
+        expect(response.body).toContain('iam_permission_resolution_duration_ms_count 1');
         await app.close();
     });
 });

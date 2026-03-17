@@ -4,8 +4,10 @@ export declare class InMemorySessionStore implements SessionStore {
     private readonly sessions;
     get(sessionId: string): Promise<UserSession | null>;
     save(session: UserSession): Promise<void>;
+    compareAndSwap(session: UserSession, expectedVersion: number): Promise<boolean>;
     delete(sessionId: string): Promise<void>;
     deleteAllForUser(userId: string): Promise<number>;
+    countActiveSessions(): Promise<number>;
     withRefreshLock<T>(_sessionId: string, action: () => Promise<T>): Promise<T>;
 }
 export declare class InMemoryOidcTransactionStore implements OidcTransactionStore {

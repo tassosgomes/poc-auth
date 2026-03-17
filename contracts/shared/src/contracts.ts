@@ -108,6 +108,7 @@ export const BffErrorEnvelopeSchema = z.object({
   message: z.string().min(1),
   status: z.number().int().min(400).max(599),
   details: z.record(z.unknown()).optional(),
+  correlationId: z.string().min(1).optional(),
   traceId: z.string().optional(),
   timestamp: z.string().datetime()
 });

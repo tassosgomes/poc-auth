@@ -10,9 +10,11 @@ export declare class RedisSessionStore implements SessionStore {
     constructor(redis: AnyRedisClient, config: Pick<BffConfig, 'refreshLockTtlMs'>, now?: () => number);
     get(sessionId: string): Promise<UserSession | null>;
     save(session: UserSession): Promise<void>;
+    compareAndSwap(session: UserSession, expectedVersion: number): Promise<boolean>;
     delete(sessionId: string): Promise<void>;
     deleteAllForUser(userId: string): Promise<number>;
-    withRefreshLock<T>(sessionId: string, action: () => Promise<T>): Promise<T>;
+    countActiveSessions(): Promise<number>;
+    withRefreshLock<T>(sessionId: string, action: () => Promise<T>, onConflict?: () => void): Promise<T>;
     private calculateSessionTtlSeconds;
 }
 export {};

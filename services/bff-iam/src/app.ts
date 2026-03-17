@@ -18,6 +18,7 @@ import type {
   SessionStore
 } from './types.js';
 import { clearSessionCookie, setSessionCookie } from './utils/cookies.js';
+import { BffMetrics } from './observability/metrics.js';
 import { buildUpstreamBody, buildUpstreamHeaders, copyResponseHeaders } from './utils/http.js';
 
 type FetchLike = typeof fetch;
@@ -31,6 +32,7 @@ export interface BuildAppOptions {
   fetchImpl?: FetchLike;
   clock?: () => number;
   logger?: boolean;
+  metrics?: BffMetrics;
 }
 
 const UpdateRoleAccessBodySchema = z.object({
@@ -41,24 +43,61 @@ const UpdateRoleAccessBodySchema = z.object({
 });
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({
+    logger: options.logger ?? false,
+    genReqId: (request) => {
+      const header = request.headers['x-correlation-id'];
+      if (typeof header === 'string' && header.trim().length > 0) {
+        return header.trim();
+      }
+
+      return crypto.randomUUID();
+    }
+  });
   const oidcClient =
     options.oidcClient ?? new CyberArkOidcClient(options.config, options.fetchImpl ?? fetch);
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.clock ?? (() => Date.now());
+  const metrics = options.metrics ?? new BffMetrics();
 
   await app.register(cookie);
 
+  app.addHook('onRequest', async (request, reply) => {
+    reply.header('x-correlation-id', request.id);
+  });
+
   app.setErrorHandler((error, request, reply) => {
-    const envelope = toErrorEnvelope(error, request.id);
-    if (isBffAppError(error) && (error.code === 'SESSION_NOT_FOUND' || error.code === 'SESSION_EXPIRED')) {
+    const envelope = toErrorEnvelope(error, {
+      correlationId: request.id,
+      traceId: request.id
+    });
+    if (
+      isBffAppError(error) &&
+      (error.code === 'SESSION_NOT_FOUND' || error.code === 'SESSION_EXPIRED' || error.code === 'TOKEN_REFRESH_FAILED')
+    ) {
       clearSessionCookie(reply, options.config);
     }
+
+    request.log.error(
+      {
+        code: envelope.code,
+        status: envelope.status,
+        correlationId: request.id,
+        err: error
+      },
+      'BFF request failed'
+    );
 
     reply.status(envelope.status).send(envelope);
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
+
+  app.get('/metrics', async (_request, reply) => {
+    await metrics.syncActiveSessions(options.sessionStore);
+    reply.header('content-type', 'text/plain; version=0.0.4; charset=utf-8');
+    reply.send(metrics.renderPrometheus());
+  });
 
   app.get('/api/auth/login', async (_request, reply) => {
     const state = generateRandomToken();
@@ -147,23 +186,56 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   app.get('/api/permissions', async (request) => {
-    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now);
-    return options.permissionService.getEffectivePermissions({
+    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now, metrics);
+    return resolvePermissionSnapshot(options.permissionService, metrics, {
       userId: session.userId,
       roles: session.roles,
       sessionVersion: session.version
     });
   });
 
+  app.post('/api/logout', async (request, reply) => {
+    const sessionId = request.cookies[options.config.sessionCookieName];
+    if (sessionId) {
+      await options.sessionStore.delete(sessionId);
+    }
+
+    request.log.info(
+      {
+        correlationId: request.id,
+        sessionId: sessionId ?? null
+      },
+      'Local logout completed'
+    );
+    clearSessionCookie(reply, options.config);
+    reply.status(204).send();
+  });
+
+  app.post('/api/logout/global', async (request, reply) => {
+    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now, metrics);
+    const invalidatedSessions = await options.sessionStore.deleteAllForUser(session.userId);
+
+    request.log.info(
+      {
+        correlationId: request.id,
+        userId: session.userId,
+        invalidatedSessions
+      },
+      'Global logout completed'
+    );
+    clearSessionCookie(reply, options.config);
+    reply.status(204).send();
+  });
+
   app.get('/api/admin/role-access', async (request) => {
-    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now);
-    await requirePermission(session, options.permissionService, 'role-access:manage');
+    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now, metrics);
+    await requirePermission(session, options.permissionService, 'role-access:manage', metrics);
     return options.permissionService.listRoleAccess();
   });
 
   app.put('/api/admin/role-access/:role', async (request) => {
-    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now);
-    await requirePermission(session, options.permissionService, 'role-access:manage');
+    const session = await requireAuthenticatedSession(request, options.config, options.sessionStore, oidcClient, now, metrics);
+    await requirePermission(session, options.permissionService, 'role-access:manage', metrics);
 
     const role = RoleSchema.parse((request.params as { role?: string }).role);
     const payload = UpdateRoleAccessBodySchema.parse(request.body ?? {});
@@ -179,14 +251,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     method: ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
     url: '/api/java/*',
     handler: async (request, reply) =>
-      proxyRequest(request, reply, options.config.javaUpstreamUrl, options.config, options.sessionStore, oidcClient, fetchImpl, now)
+      proxyRequest(request, reply, options.config.javaUpstreamUrl, options.config, options.sessionStore, oidcClient, fetchImpl, now, metrics)
   });
 
   app.route({
     method: ['DELETE', 'GET', 'HEAD', 'PATCH', 'POST', 'PUT'],
     url: '/api/dotnet/*',
     handler: async (request, reply) =>
-      proxyRequest(request, reply, options.config.dotnetUpstreamUrl, options.config, options.sessionStore, oidcClient, fetchImpl, now)
+      proxyRequest(request, reply, options.config.dotnetUpstreamUrl, options.config, options.sessionStore, oidcClient, fetchImpl, now, metrics)
   });
 
   return app;
@@ -197,7 +269,8 @@ async function requireAuthenticatedSession(
   config: BffConfig,
   sessionStore: SessionStore,
   oidcClient: OidcClient,
-  now: () => number
+  now: () => number,
+  metrics: BffMetrics
 ): Promise<UserSession> {
   const sessionId = request.cookies[config.sessionCookieName];
   if (!sessionId) {
@@ -209,7 +282,7 @@ async function requireAuthenticatedSession(
     throw new BffAppError('SESSION_NOT_FOUND', 401, 'Session not found');
   }
 
-  return ensureFreshSession(session, sessionStore, oidcClient, config, now);
+  return ensureFreshSession(session, sessionStore, oidcClient, config, now, metrics);
 }
 
 async function ensureFreshSession(
@@ -217,7 +290,8 @@ async function ensureFreshSession(
   sessionStore: SessionStore,
   oidcClient: OidcClient,
   config: BffConfig,
-  now: () => number
+  now: () => number,
+  metrics: BffMetrics = new BffMetrics()
 ): Promise<UserSession> {
   const nowSeconds = Math.floor(now() / 1000);
 
@@ -235,48 +309,98 @@ async function ensureFreshSession(
     return updatedSession;
   }
 
-  return sessionStore.withRefreshLock(session.sessionId, async () => {
-    const latestSession = await sessionStore.get(session.sessionId);
-    if (!latestSession) {
-      throw new BffAppError('SESSION_NOT_FOUND', 401, 'Session not found while refreshing token');
+  try {
+    return await sessionStore.withRefreshLock(
+      session.sessionId,
+      async () => {
+        const refreshNowSeconds = Math.floor(now() / 1000);
+        const latestSession = await sessionStore.get(session.sessionId);
+        if (!latestSession) {
+          throw new BffAppError('SESSION_NOT_FOUND', 401, 'Session not found while refreshing token');
+        }
+
+        if (
+          latestSession.absoluteExpiresAt <= refreshNowSeconds ||
+          latestSession.refreshTokenExpiresAt <= refreshNowSeconds
+        ) {
+          await sessionStore.delete(latestSession.sessionId);
+          throw new BffAppError('SESSION_EXPIRED', 401, 'Session expired');
+        }
+
+        if (latestSession.accessTokenExpiresAt > refreshNowSeconds + config.accessTokenRefreshSkewSeconds) {
+          const touchedSession = {
+            ...latestSession,
+            lastAccessAt: refreshNowSeconds
+          };
+          await sessionStore.save(touchedSession);
+          return touchedSession;
+        }
+
+        try {
+          const refreshed = await oidcClient.refresh({ refreshToken: latestSession.refreshToken });
+          const refreshedSession: UserSession = {
+            ...latestSession,
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+            idToken: refreshed.idToken,
+            accessTokenExpiresAt: refreshNowSeconds + refreshed.accessTokenExpiresIn,
+            refreshTokenExpiresAt: refreshNowSeconds + (refreshed.refreshTokenExpiresIn ?? config.sessionTtlSeconds),
+            absoluteExpiresAt: Math.min(
+              latestSession.absoluteExpiresAt,
+              refreshNowSeconds + (refreshed.refreshTokenExpiresIn ?? config.sessionTtlSeconds)
+            ),
+            lastAccessAt: refreshNowSeconds,
+            version: latestSession.version + 1
+          };
+
+          const replaced = await sessionStore.compareAndSwap(refreshedSession, latestSession.version);
+          if (!replaced) {
+            const concurrentSession = await sessionStore.get(session.sessionId);
+            if (!concurrentSession) {
+              throw new BffAppError('SESSION_NOT_FOUND', 401, 'Session not found after refresh compare-and-swap');
+            }
+
+            return concurrentSession;
+          }
+
+          metrics.recordTokenRefresh('success');
+          return refreshedSession;
+        } catch (error) {
+          if (isBffAppError(error) && error.code === 'TOKEN_REFRESH_FAILED') {
+            await sessionStore.delete(session.sessionId);
+            metrics.recordTokenRefresh('failure');
+
+            throw new BffAppError('TOKEN_REFRESH_FAILED', 401, 'Token refresh failed and the session was invalidated', {
+              ...error.details,
+              sessionId: session.sessionId,
+              userId: session.userId
+            });
+          }
+
+          throw error;
+        }
+      },
+      () => metrics.recordTokenRefreshConflict()
+    );
+  } catch (error) {
+    if (isBffAppError(error) && error.code === 'TOKEN_REFRESH_FAILED') {
+      const latestSession = await sessionStore.get(session.sessionId);
+      if (latestSession && latestSession.accessTokenExpiresAt > Math.floor(now() / 1000) + config.accessTokenRefreshSkewSeconds) {
+        return latestSession;
+      }
     }
 
-    if (latestSession.accessTokenExpiresAt > nowSeconds + config.accessTokenRefreshSkewSeconds) {
-      const touchedSession = {
-        ...latestSession,
-        lastAccessAt: nowSeconds
-      };
-      await sessionStore.save(touchedSession);
-      return touchedSession;
-    }
-
-    const refreshed = await oidcClient.refresh({ refreshToken: latestSession.refreshToken });
-    const refreshedSession: UserSession = {
-      ...latestSession,
-      accessToken: refreshed.accessToken,
-      refreshToken: refreshed.refreshToken,
-      idToken: refreshed.idToken,
-      accessTokenExpiresAt: nowSeconds + refreshed.accessTokenExpiresIn,
-      refreshTokenExpiresAt: nowSeconds + (refreshed.refreshTokenExpiresIn ?? config.sessionTtlSeconds),
-      absoluteExpiresAt: Math.min(
-        latestSession.absoluteExpiresAt,
-        nowSeconds + (refreshed.refreshTokenExpiresIn ?? config.sessionTtlSeconds)
-      ),
-      lastAccessAt: nowSeconds,
-      version: latestSession.version + 1
-    };
-
-    await sessionStore.save(refreshedSession);
-    return refreshedSession;
-  });
+    throw error;
+  }
 }
 
 async function requirePermission(
   session: UserSession,
   permissionService: PermissionService,
-  permission: string
+  permission: string,
+  metrics: BffMetrics
 ): Promise<void> {
-  const snapshot = await permissionService.getEffectivePermissions({
+  const snapshot = await resolvePermissionSnapshot(permissionService, metrics, {
     userId: session.userId,
     roles: session.roles,
     sessionVersion: session.version
@@ -298,9 +422,10 @@ async function proxyRequest(
   sessionStore: SessionStore,
   oidcClient: OidcClient,
   fetchImpl: FetchLike,
-  now: () => number
+  now: () => number,
+  metrics: BffMetrics
 ): Promise<void> {
-  const session = await requireAuthenticatedSession(request, config, sessionStore, oidcClient, now);
+  const session = await requireAuthenticatedSession(request, config, sessionStore, oidcClient, now, metrics);
   const wildcard = ((request.params as { '*': string | undefined })['*'] ?? '').replace(/^\//, '');
   const targetUrl = new URL(wildcard, upstreamBaseUrl.endsWith('/') ? upstreamBaseUrl : `${upstreamBaseUrl}/`);
   const queryIndex = request.raw.url?.indexOf('?') ?? -1;
@@ -325,4 +450,18 @@ async function proxyRequest(
   copyResponseHeaders(response.headers, reply);
   const body = Buffer.from(await response.arrayBuffer());
   reply.status(response.status).send(body);
+}
+
+async function resolvePermissionSnapshot(
+  permissionService: PermissionService,
+  metrics: BffMetrics,
+  input: Parameters<PermissionService['getEffectivePermissions']>[0]
+) {
+  const startedAt = Date.now();
+
+  try {
+    return await permissionService.getEffectivePermissions(input);
+  } finally {
+    metrics.recordPermissionResolution(Date.now() - startedAt);
+  }
 }

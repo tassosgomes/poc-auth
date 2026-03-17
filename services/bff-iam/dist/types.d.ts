@@ -34,9 +34,11 @@ export interface OidcFlowTransaction {
 export interface SessionStore {
     get(sessionId: string): Promise<UserSession | null>;
     save(session: UserSession): Promise<void>;
+    compareAndSwap(session: UserSession, expectedVersion: number): Promise<boolean>;
     delete(sessionId: string): Promise<void>;
     deleteAllForUser(userId: string): Promise<number>;
-    withRefreshLock<T>(sessionId: string, action: () => Promise<T>): Promise<T>;
+    countActiveSessions(): Promise<number>;
+    withRefreshLock<T>(sessionId: string, action: () => Promise<T>, onConflict?: () => void): Promise<T>;
 }
 export interface OidcTransactionStore {
     save(transaction: OidcFlowTransaction): Promise<void>;

@@ -12,7 +12,8 @@ Shell React responsavel por bootstrap de sessao, navegacao protegida e composica
 ## Variaveis de ambiente
 
 - `VITE_BFF_BASE_URL`: base publica do BFF. Default: `https://api-authpoc.tasso.dev.br`
-- `VITE_ENABLE_CORRELATION`: quando `true`, envia `x-correlation-id` em requests do shell
+
+O shell sempre envia `x-correlation-id` em requests para o BFF quando o chamador ainda nao informou esse header.
 
 ## Escopo atual
 

@@ -239,6 +239,7 @@ export declare const BffErrorEnvelopeSchema: z.ZodObject<{
     message: z.ZodString;
     status: z.ZodNumber;
     details: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    correlationId: z.ZodOptional<z.ZodString>;
     traceId: z.ZodOptional<z.ZodString>;
     timestamp: z.ZodString;
 }, "strip", z.ZodTypeAny, {
@@ -247,6 +248,7 @@ export declare const BffErrorEnvelopeSchema: z.ZodObject<{
     status: number;
     timestamp: string;
     details?: Record<string, unknown> | undefined;
+    correlationId?: string | undefined;
     traceId?: string | undefined;
 }, {
     code: "OIDC_CALLBACK_INVALID" | "INVALID_REQUEST" | "SESSION_NOT_FOUND" | "SESSION_EXPIRED" | "TOKEN_REFRESH_FAILED" | "FORBIDDEN" | "SESSION_STORE_UNAVAILABLE" | "UPSTREAM_ERROR";
@@ -254,6 +256,7 @@ export declare const BffErrorEnvelopeSchema: z.ZodObject<{
     status: number;
     timestamp: string;
     details?: Record<string, unknown> | undefined;
+    correlationId?: string | undefined;
     traceId?: string | undefined;
 }>;
 export type BffErrorEnvelope = z.infer<typeof BffErrorEnvelopeSchema>;

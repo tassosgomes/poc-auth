@@ -35,6 +35,7 @@ describe('shared contracts', () => {
             code: 'SESSION_NOT_FOUND',
             message: 'Session was not found',
             status: 401,
+            correlationId: 'corr-123',
             timestamp: '2026-03-17T00:00:00.000Z'
         };
         expect(() => BffErrorEnvelopeSchema.parse(envelope)).not.toThrow();

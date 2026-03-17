@@ -6,6 +6,14 @@ export class InMemorySessionStore {
     async save(session) {
         this.sessions.set(session.sessionId, session);
     }
+    async compareAndSwap(session, expectedVersion) {
+        const current = this.sessions.get(session.sessionId);
+        if (!current || current.version !== expectedVersion) {
+            return false;
+        }
+        this.sessions.set(session.sessionId, session);
+        return true;
+    }
     async delete(sessionId) {
         this.sessions.delete(sessionId);
     }
@@ -18,6 +26,9 @@ export class InMemorySessionStore {
             }
         }
         return count;
+    }
+    async countActiveSessions() {
+        return this.sessions.size;
     }
     async withRefreshLock(_sessionId, action) {
         return action();

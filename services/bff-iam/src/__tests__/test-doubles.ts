@@ -22,6 +22,16 @@ export class InMemorySessionStore implements SessionStore {
     this.sessions.set(session.sessionId, session);
   }
 
+  async compareAndSwap(session: UserSession, expectedVersion: number): Promise<boolean> {
+    const current = this.sessions.get(session.sessionId);
+    if (!current || current.version !== expectedVersion) {
+      return false;
+    }
+
+    this.sessions.set(session.sessionId, session);
+    return true;
+  }
+
   async delete(sessionId: string): Promise<void> {
     this.sessions.delete(sessionId);
   }
@@ -36,6 +46,10 @@ export class InMemorySessionStore implements SessionStore {
     }
 
     return count;
+  }
+
+  async countActiveSessions(): Promise<number> {
+    return this.sessions.size;
   }
 
   async withRefreshLock<T>(_sessionId: string, action: () => Promise<T>): Promise<T> {

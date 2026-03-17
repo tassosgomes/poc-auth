@@ -38,6 +38,7 @@ export const BFF_ERROR_FIXTURE: BffErrorEnvelope = {
   details: {
     requiredPermission: 'role-access:manage'
   },
+  correlationId: 'corr-123',
   traceId: 'trace-123',
   timestamp: '2026-03-17T00:00:00.000Z'
 };

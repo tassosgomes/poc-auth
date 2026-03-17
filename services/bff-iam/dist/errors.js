@@ -14,14 +14,15 @@ export class BffAppError extends Error {
 export function isBffAppError(error) {
     return error instanceof BffAppError;
 }
-export function toErrorEnvelope(error, traceId) {
+export function toErrorEnvelope(error, context = {}) {
     if (isBffAppError(error)) {
         return {
             code: error.code,
             message: error.message,
             status: error.status,
             details: error.details,
-            traceId,
+            correlationId: context.correlationId,
+            traceId: context.traceId,
             timestamp: new Date().toISOString()
         };
     }
@@ -37,7 +38,8 @@ export function toErrorEnvelope(error, traceId) {
                     code: issue.code
                 }))
             },
-            traceId,
+            correlationId: context.correlationId,
+            traceId: context.traceId,
             timestamp: new Date().toISOString()
         };
     }
@@ -45,7 +47,8 @@ export function toErrorEnvelope(error, traceId) {
         code: 'UPSTREAM_ERROR',
         message: 'Unexpected BFF failure',
         status: 500,
-        traceId,
+        correlationId: context.correlationId,
+        traceId: context.traceId,
         timestamp: new Date().toISOString()
     };
 }

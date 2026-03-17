@@ -21,7 +21,12 @@ export function BootstrapFeedback({ sessionState, retryBootstrap }: BootstrapFee
   }
 
   if (sessionState.status === 'expired') {
-    return <ExpiredBootstrapFeedback traceId={sessionState.error.envelope?.traceId} />;
+    return (
+      <ExpiredBootstrapFeedback
+        correlationId={sessionState.error.envelope?.correlationId}
+        traceId={sessionState.error.envelope?.traceId}
+      />
+    );
   }
 
   if (sessionState.status === 'forbidden') {
@@ -31,6 +36,7 @@ export function BootstrapFeedback({ sessionState, retryBootstrap }: BootstrapFee
         title="O BFF recusou o bootstrap desta sessao"
         message="As roles efetivas nao concedem acesso ao shell solicitado."
         tone="danger"
+        correlationId={sessionState.error.envelope?.correlationId}
         traceId={sessionState.error.envelope?.traceId}
         linkAction={{
           href: getLoginUrl(),
@@ -47,6 +53,7 @@ export function BootstrapFeedback({ sessionState, retryBootstrap }: BootstrapFee
         title="Servico temporariamente indisponivel"
         message="O shell nao conseguiu obter o snapshot de permissoes. Tente novamente em instantes."
         tone="warning"
+        correlationId={sessionState.error.envelope?.correlationId}
         traceId={sessionState.error.envelope?.traceId}
         buttonAction={{
           label: 'Tentar novamente',
@@ -59,7 +66,7 @@ export function BootstrapFeedback({ sessionState, retryBootstrap }: BootstrapFee
   return null;
 }
 
-function ExpiredBootstrapFeedback({ traceId }: { traceId?: string }): JSX.Element {
+function ExpiredBootstrapFeedback({ correlationId, traceId }: { correlationId?: string; traceId?: string }): JSX.Element {
   useEffect(() => {
     redirectToLogin();
   }, []);
@@ -70,6 +77,7 @@ function ExpiredBootstrapFeedback({ traceId }: { traceId?: string }): JSX.Elemen
       title="Sua sessao nao esta mais valida"
       message="A autenticacao expirou ou nao foi localizada. O shell esta redirecionando para um novo login."
       tone="warning"
+      correlationId={correlationId}
       traceId={traceId}
       details={<p className="feedback-panel__hint">Se o redirecionamento nao acontecer, use a acao abaixo para iniciar a autenticacao novamente.</p>}
       linkAction={{

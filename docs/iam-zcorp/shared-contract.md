@@ -63,6 +63,24 @@ A convenção global de roles em SCREAMING_SNAKE_CASE não se aplica nesta PoC p
 - SESSION_STORE_UNAVAILABLE
 - UPSTREAM_ERROR
 
+## Envelope de Erro do BFF
+
+Campos canônicos:
+
+- `code`
+- `message`
+- `status`
+- `timestamp`
+- `correlationId` opcional, mas obrigatório sempre que houver request HTTP processado
+- `traceId` opcional para alinhamento com telemetria e compatibilidade de UI
+- `details` opcional para metadados operacionais sem tokens ou cookies
+
+Regras:
+
+- O BFF deve ecoar `x-correlation-id` no header de resposta e no campo `correlationId` quando o header estiver presente.
+- Na ausencia do header, o BFF gera um `correlationId` e o reutiliza no envelope, logs e chamadas upstream.
+- Java e .NET devem continuar expondo `correlationId` em `ProblemDetails` para preservar rastreabilidade ponta a ponta.
+
 ## Catálogo Inicial de MFEs
 
 Cada item obrigatório contém:

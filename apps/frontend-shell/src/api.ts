@@ -37,7 +37,7 @@ async function requestBff(pathname: string, init: RequestInit = {}): Promise<Res
   const headers = new Headers(init.headers ?? {});
   headers.set('accept', 'application/json');
 
-  if (import.meta.env.VITE_ENABLE_CORRELATION === 'true' && !headers.has('x-correlation-id')) {
+  if (!headers.has('x-correlation-id')) {
     headers.set('x-correlation-id', buildCorrelationId());
   }
 

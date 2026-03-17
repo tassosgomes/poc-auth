@@ -27,7 +27,7 @@ Fecha lacunas de refresh concorrente, logout global, observabilidade, conteineri
 - [x] 5.0 Entregar microfrontends remotos com carregamento autorizado
 - [x] 6.0 Implementar orders-service Java com JWT e autorizacao por permissao
 - [x] 7.0 Implementar reports-service .NET com JWT e autorizacao por permissao
-- [ ] 8.0 Endurecer refresh, logout global, erros e observabilidade
+- [x] 8.0 Endurecer refresh, logout global, erros e observabilidade
 - [ ] 9.0 Publicar stack operacional com Traefik, Compose, Kubernetes e guias
 
 ## Rastreabilidade US -> Tasks
