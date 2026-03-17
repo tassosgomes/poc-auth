@@ -16,7 +16,7 @@ export const USER_SESSION_FIXTURE = {
 export const PERMISSION_SNAPSHOT_FIXTURE = {
     userId: 'user-123',
     roles: ['admin'],
-    permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
+    permissions: ['dashboard:view', 'ordens:view', 'ordens:create', 'relatorios:view', 'role-access:manage'],
     screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
     routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
     microfrontends: MICROFRONTEND_CATALOG_SEED,

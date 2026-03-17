@@ -19,6 +19,7 @@ import type { PermissionLookupInput, PermissionService, RoleAccessUpdateCommand 
 
 const PERMISSION_SNAPSHOT_PREFIX = 'permission_snapshot:';
 const ROLE_ACCESS_CACHE_PREFIX = 'role_access_cache:';
+const ROLE_ACCESS_LATEST_PREFIX = 'role_access:';
 
 type AnyRedisClient = RedisClientType<any, any, any>;
 
@@ -40,7 +41,7 @@ const ALLOWED_ROUTES = new Set(MICROFRONTEND_CATALOG_SEED.map((item) => item.rou
 const ALLOWED_MICROFRONTENDS = new Set(MICROFRONTEND_CATALOG_SEED.map((item) => item.id));
 
 function ROLE_ACCESS_SEED_PERMISSIONS(): string[] {
-  return ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'];
+  return ['dashboard:view', 'ordens:view', 'ordens:create', 'relatorios:view', 'role-access:manage'];
 }
 
 function collectUnique(values: readonly string[]): string[] {
@@ -182,6 +183,11 @@ export class RoleAccessPermissionService implements PermissionService {
     return sortByFixedRoleOrder(configs);
   }
 
+  async warmRoleAccessCache(): Promise<void> {
+    const entries = await this.repository.listAll();
+    await Promise.all(entries.map((entry) => this.writeRoleAccessCache(entry)));
+  }
+
   async updateRoleAccess(role: FixedRole, command: RoleAccessUpdateCommand): Promise<RoleAccessConfig> {
     const nextCommand = this.validateUpdateCommand(command);
     const updated = await this.repository.update(role, nextCommand);
@@ -320,9 +326,15 @@ export class RoleAccessPermissionService implements PermissionService {
 
   private async writeRoleAccessCache(entry: RoleAccessConfig): Promise<void> {
     try {
-      await this.redis.set(buildRoleAccessCacheKey(entry.role, entry.version), JSON.stringify(entry), {
-        EX: this.config.roleAccessCacheTtlSeconds
-      });
+      const payload = JSON.stringify(entry);
+      await Promise.all([
+        this.redis.set(buildRoleAccessCacheKey(entry.role, entry.version), payload, {
+          EX: this.config.roleAccessCacheTtlSeconds
+        }),
+        this.redis.set(`${ROLE_ACCESS_LATEST_PREFIX}${entry.role}`, payload, {
+          EX: this.config.roleAccessCacheTtlSeconds
+        })
+      ]);
     } catch {
       return;
     }

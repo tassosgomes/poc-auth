@@ -62,7 +62,7 @@ export class FakeOidcClient {
 const DEFAULT_ROLE_ACCESS = [
     {
         role: 'admin',
-        permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
+        permissions: ['dashboard:view', 'ordens:view', 'ordens:create', 'relatorios:view', 'role-access:manage'],
         screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
         routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
         microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios', 'mfe-admin-acessos'],
@@ -72,7 +72,7 @@ const DEFAULT_ROLE_ACCESS = [
     },
     {
         role: 'coordenador',
-        permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
+        permissions: ['dashboard:view', 'ordens:view', 'ordens:create', 'relatorios:view'],
         screens: ['dashboard', 'ordens', 'relatorios'],
         routes: ['/dashboard', '/ordens', '/relatorios'],
         microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios'],

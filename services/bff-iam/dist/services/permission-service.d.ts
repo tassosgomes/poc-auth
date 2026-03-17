@@ -15,6 +15,7 @@ export declare class RoleAccessPermissionService implements PermissionService {
     constructor(repository: RoleAccessRepository, redis: AnyRedisClient, config: Pick<BffConfig, 'permissionSnapshotCacheTtlSeconds' | 'roleAccessCacheTtlSeconds'>, logger?: LoggerLike | undefined);
     getEffectivePermissions(input: PermissionLookupInput): Promise<PermissionSnapshot>;
     listRoleAccess(): Promise<RoleAccessConfig[]>;
+    warmRoleAccessCache(): Promise<void>;
     updateRoleAccess(role: FixedRole, command: RoleAccessUpdateCommand): Promise<RoleAccessConfig>;
     private loadRoleAccessConfigs;
     private validateUpdateCommand;

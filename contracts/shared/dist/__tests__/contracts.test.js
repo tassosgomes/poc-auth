@@ -66,7 +66,7 @@ describe('shared contracts', () => {
     it('validates role access admin payload schemas used by the remote admin screen', () => {
         expect(() => RoleAccessConfigListSchema.parse(ROLE_ACCESS_SEED)).not.toThrow();
         expect(() => RoleAccessMutationSchema.parse({
-            permissions: ['dashboard:view'],
+            permissions: ['dashboard:view', 'ordens:create'],
             screens: ['dashboard'],
             routes: ['/dashboard'],
             microfrontends: ['mfe-dashboard']

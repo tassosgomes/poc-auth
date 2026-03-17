@@ -2,6 +2,7 @@ import { FIXED_ROLES, MICROFRONTEND_CATALOG_SEED, RoleAccessConfigSchema, RoleSc
 import { BffAppError } from '../errors.js';
 const PERMISSION_SNAPSHOT_PREFIX = 'permission_snapshot:';
 const ROLE_ACCESS_CACHE_PREFIX = 'role_access_cache:';
+const ROLE_ACCESS_LATEST_PREFIX = 'role_access:';
 const ALLOWED_PERMISSIONS = new Set([
     ...ROLE_ACCESS_SEED_PERMISSIONS(),
     ...MICROFRONTEND_CATALOG_SEED.flatMap((item) => item.requiredPermissions)
@@ -10,7 +11,7 @@ const ALLOWED_SCREENS = new Set(['dashboard', 'ordens', 'relatorios', 'admin-ace
 const ALLOWED_ROUTES = new Set(MICROFRONTEND_CATALOG_SEED.map((item) => item.route));
 const ALLOWED_MICROFRONTENDS = new Set(MICROFRONTEND_CATALOG_SEED.map((item) => item.id));
 function ROLE_ACCESS_SEED_PERMISSIONS() {
-    return ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'];
+    return ['dashboard:view', 'ordens:view', 'ordens:create', 'relatorios:view', 'role-access:manage'];
 }
 function collectUnique(values) {
     return Array.from(new Set(values));
@@ -123,6 +124,10 @@ export class RoleAccessPermissionService {
         const versions = await this.repository.listVersions(FIXED_ROLES);
         const configs = await this.loadRoleAccessConfigs(FIXED_ROLES, versions);
         return sortByFixedRoleOrder(configs);
+    }
+    async warmRoleAccessCache() {
+        const entries = await this.repository.listAll();
+        await Promise.all(entries.map((entry) => this.writeRoleAccessCache(entry)));
     }
     async updateRoleAccess(role, command) {
         const nextCommand = this.validateUpdateCommand(command);
@@ -237,9 +242,15 @@ export class RoleAccessPermissionService {
     }
     async writeRoleAccessCache(entry) {
         try {
-            await this.redis.set(buildRoleAccessCacheKey(entry.role, entry.version), JSON.stringify(entry), {
-                EX: this.config.roleAccessCacheTtlSeconds
-            });
+            const payload = JSON.stringify(entry);
+            await Promise.all([
+                this.redis.set(buildRoleAccessCacheKey(entry.role, entry.version), payload, {
+                    EX: this.config.roleAccessCacheTtlSeconds
+                }),
+                this.redis.set(`${ROLE_ACCESS_LATEST_PREFIX}${entry.role}`, payload, {
+                    EX: this.config.roleAccessCacheTtlSeconds
+                })
+            ]);
         }
         catch {
             return;

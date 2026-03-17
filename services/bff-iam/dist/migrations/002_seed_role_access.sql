@@ -11,7 +11,7 @@ insert into role_access (
 values
   (
     'admin',
-    '["dashboard:view","ordens:view","relatorios:view","role-access:manage"]'::jsonb,
+    '["dashboard:view","ordens:view","ordens:create","relatorios:view","role-access:manage"]'::jsonb,
     '["dashboard","ordens","relatorios","admin-acessos"]'::jsonb,
     '["/dashboard","/ordens","/relatorios","/admin/acessos"]'::jsonb,
     '["mfe-dashboard","mfe-ordens","mfe-relatorios","mfe-admin-acessos"]'::jsonb,
@@ -21,7 +21,7 @@ values
   ),
   (
     'coordenador',
-    '["dashboard:view","ordens:view","relatorios:view"]'::jsonb,
+    '["dashboard:view","ordens:view","ordens:create","relatorios:view"]'::jsonb,
     '["dashboard","ordens","relatorios"]'::jsonb,
     '["/dashboard","/ordens","/relatorios"]'::jsonb,
     '["mfe-dashboard","mfe-ordens","mfe-relatorios"]'::jsonb,

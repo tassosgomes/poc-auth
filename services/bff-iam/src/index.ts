@@ -36,6 +36,8 @@ const permissionService = new RoleAccessPermissionService(
   console
 );
 
+await permissionService.warmRoleAccessCache();
+
 const app = await buildApp({
   config,
   sessionStore: new RedisSessionStore(redis, config),

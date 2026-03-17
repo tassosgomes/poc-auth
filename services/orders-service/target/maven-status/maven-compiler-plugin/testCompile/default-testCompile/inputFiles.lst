@@ -1,0 +1,5 @@
+/home/tsgomes/github-tassosgomes/poc-auth/services/orders-service/src/test/java/com/zcorp/ordersservice/api/order/OrderControllerIntegrationTest.java
+/home/tsgomes/github-tassosgomes/poc-auth/services/orders-service/src/test/java/com/zcorp/ordersservice/api/order/SecurityIntegrationTestSupport.java
+/home/tsgomes/github-tassosgomes/poc-auth/services/orders-service/src/test/java/com/zcorp/ordersservice/security/JwtClaimsAdapterTest.java
+/home/tsgomes/github-tassosgomes/poc-auth/services/orders-service/src/test/java/com/zcorp/ordersservice/security/RedisPermissionResolverTest.java
+/home/tsgomes/github-tassosgomes/poc-auth/services/orders-service/src/test/java/com/zcorp/ordersservice/security/RedisRoleAccessGatewayTest.java

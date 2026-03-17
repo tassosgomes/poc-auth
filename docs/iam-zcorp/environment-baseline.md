@@ -48,6 +48,17 @@ Definir variáveis mínimas por componente para execução local e evolução pa
 - REDIS_PASSWORD=<secret>
 - REDIS_TLS_ENABLED=false
 
+## orders-service
+
+- ORDERS_SERVICE_PORT=8080
+- ORDERS_SERVICE_SECURITY_ISSUER_URI=<preencher>
+- ORDERS_SERVICE_SECURITY_JWK_SET_URI=<preencher>
+- ORDERS_SERVICE_SECURITY_AUDIENCE=orders-service
+- ORDERS_SERVICE_SECURITY_ROLES_CLAIM=ROLES
+- ORDERS_SERVICE_AUTHZ_ROLE_ACCESS_KEY_PREFIX=role_access:
+- ORDERS_SERVICE_AUTHZ_LOCAL_CACHE_TTL=PT5S
+- ORDERS_SERVICE_REDIS_URL=redis://redis:6379
+
 ## Banco Relacional (authz-db)
 
 - AUTHZ_DB_HOST=authz-db

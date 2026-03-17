@@ -1,0 +1,6 @@
+com/zcorp/ordersservice/security/JwtClaimsAdapterTest.class
+com/zcorp/ordersservice/api/order/SecurityIntegrationTestSupport.class
+com/zcorp/ordersservice/security/RedisPermissionResolverTest.class
+com/zcorp/ordersservice/security/RedisRoleAccessGatewayTest.class
+com/zcorp/ordersservice/api/order/OrderControllerIntegrationTest.class
+com/zcorp/ordersservice/api/order/OrderControllerIntegrationTest$1.class

@@ -21,6 +21,7 @@ redis.on('error', (error) => {
 });
 await redis.connect();
 const permissionService = new RoleAccessPermissionService(new RoleAccessRepository(database), redis, config, console);
+await permissionService.warmRoleAccessCache();
 const app = await buildApp({
     config,
     sessionStore: new RedisSessionStore(redis, config),

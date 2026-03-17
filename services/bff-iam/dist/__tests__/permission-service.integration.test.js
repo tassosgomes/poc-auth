@@ -63,12 +63,14 @@ describe('RoleAccessPermissionService integration', () => {
             sessionVersion: 7
         });
         expect(snapshot.roles).toEqual(['coordenador', 'tecnico']);
-        expect(snapshot.permissions).toEqual(['dashboard:view', 'ordens:view', 'relatorios:view']);
+        expect(snapshot.permissions).toEqual(['dashboard:view', 'ordens:view', 'ordens:create', 'relatorios:view']);
         expect(snapshot.routes).toEqual(['/dashboard', '/ordens', '/relatorios']);
         expect(snapshot.microfrontends.map((item) => item.id)).toEqual(['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios']);
         await expect(redis.exists('permission_snapshot:user-123:7')).resolves.toBe(1);
         await expect(redis.exists('role_access_cache:coordenador:1')).resolves.toBe(1);
         await expect(redis.exists('role_access_cache:tecnico:1')).resolves.toBe(1);
+        await expect(redis.exists('role_access:coordenador')).resolves.toBe(1);
+        await expect(redis.exists('role_access:tecnico')).resolves.toBe(1);
     });
     it('updates role access, persists audit and reflects the new permissions on the next lookup', async () => {
         const initial = await service.getEffectivePermissions({
@@ -90,6 +92,7 @@ describe('RoleAccessPermissionService integration', () => {
         });
         expect(updated.version).toBe(2);
         await expect(redis.exists('role_access_cache:tecnico:2')).resolves.toBe(1);
+        await expect(redis.exists('role_access:tecnico')).resolves.toBe(1);
         const refreshed = await service.getEffectivePermissions({
             userId: 'tecnico-user',
             roles: ['tecnico'],

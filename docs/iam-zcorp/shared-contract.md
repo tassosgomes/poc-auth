@@ -83,6 +83,11 @@ Catálogo inicial:
 
 ## Seed Inicial de Acessos por Role
 
-- admin: dashboard, ordens, relatorios, admin-acessos
-- coordenador: dashboard, ordens, relatorios
+- admin: dashboard, ordens, criacao de ordens, relatorios, admin-acessos
+- coordenador: dashboard, ordens, criacao de ordens, relatorios
 - tecnico: dashboard, ordens, relatorios
+
+Permissoes de ordens previstas no contrato atual:
+
+- `ordens:view`
+- `ordens:create`

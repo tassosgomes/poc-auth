@@ -594,7 +594,7 @@ describe('BFF app integration', () => {
         session_id: 'admin-update-session'
       },
       payload: {
-        permissions: ['dashboard:view', 'ordens:view'],
+        permissions: ['dashboard:view', 'ordens:view', 'ordens:create'],
         screens: ['dashboard', 'ordens'],
         routes: ['/dashboard', '/ordens'],
         microfrontends: ['mfe-dashboard', 'mfe-ordens']
@@ -604,7 +604,7 @@ describe('BFF app integration', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       role: 'tecnico',
-      permissions: ['dashboard:view', 'ordens:view'],
+      permissions: ['dashboard:view', 'ordens:view', 'ordens:create'],
       updatedBy: 'admin-user'
     });
     await app.close();
