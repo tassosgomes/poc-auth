@@ -23,7 +23,7 @@ Fecha lacunas de refresh concorrente, logout global, observabilidade, conteineri
 - [x] 1.0 Definir contratos compartilhados e baseline de ambiente
 - [x] 2.0 Implementar autenticacao OIDC e sessao stateful no BFF
 - [x] 3.0 Implementar matriz dinamica de acessos e administracao no BFF
-- [ ] 4.0 Construir shell React com bootstrap de sessao e navegacao protegida
+- [x] 4.0 Construir shell React com bootstrap de sessao e navegacao protegida
 - [ ] 5.0 Entregar microfrontends remotos com carregamento autorizado
 - [ ] 6.0 Implementar orders-service Java com JWT e autorizacao por permissao
 - [ ] 7.0 Implementar reports-service .NET com JWT e autorizacao por permissao
