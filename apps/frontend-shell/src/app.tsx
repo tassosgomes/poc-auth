@@ -1,9 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-import { getLoginUrl } from './api';
-import { buildNavigation, describeRoute, findMicrofrontend } from './catalog';
+import { useEffect, useRef, useState } from 'react';
+
+import { getBffBaseUrl, getLoginUrl } from './api';
+import { buildNavigation, describeRoute } from './catalog';
 import { BootstrapFeedback } from './components/bootstrap-feedback';
 import { FeedbackPanel } from './components/feedback-panel';
+import { loadAuthorizedRemote, UnauthorizedRemoteError } from './remote-loader';
 import { ProtectedRoute } from './routes/protected-route';
 import { useSession } from './session';
 
@@ -44,7 +47,7 @@ function LandingPage(): JSX.Element {
         </article>
         <article className="info-card">
           <h2>MFEs autorizados</h2>
-          <p>Os placeholders ja preservam o catalogo filtrado para acoplamento com Module Federation na tarefa 5.0.</p>
+          <p>Os remotes so sao registrados e carregados quando a rota consta no catalogo autorizado retornado pelo BFF.</p>
         </article>
       </section>
 
@@ -57,24 +60,94 @@ function LandingPage(): JSX.Element {
   );
 }
 
-function DashboardPage(): JSX.Element {
+function RemotePage({ route }: { route: string }): JSX.Element {
   const { sessionState } = useSession();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [error, setError] = useState<Error | null>(null);
+  const routeInfo = describeRoute(route);
+  const isReady = sessionState.status === 'ready';
+  const snapshot = isReady ? sessionState.snapshot : null;
+  const navigation = snapshot ? buildNavigation(snapshot) : [];
 
-  if (sessionState.status !== 'ready') {
+  useEffect(() => {
+    if (!isReady || !snapshot) {
+      setStatus('loading');
+      setError(null);
+      return;
+    }
+
+    let disposed = false;
+    let cleanup: (() => void) | void;
+
+    setStatus('loading');
+    setError(null);
+
+    void loadAuthorizedRemote(snapshot, route)
+      .then(async (remoteModule) => {
+        if (disposed || !containerRef.current) {
+          return;
+        }
+
+        cleanup = await remoteModule.mount(containerRef.current, {
+          snapshot,
+          route,
+          bffBaseUrl: getBffBaseUrl()
+        });
+
+        if (!disposed) {
+          setStatus('ready');
+        }
+      })
+      .catch((nextError: Error) => {
+        if (!disposed) {
+          setError(nextError);
+          setStatus('error');
+        }
+      });
+
+    return () => {
+      disposed = true;
+      if (typeof cleanup === 'function') {
+        cleanup();
+      }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+    };
+  }, [isReady, route, snapshot]);
+
+  if (!isReady || !snapshot) {
     return <></>;
   }
 
-  const navigation = buildNavigation(sessionState.snapshot);
+  if (status === 'error') {
+    const isUnauthorizedRemote = error instanceof UnauthorizedRemoteError;
+
+    return (
+      <FeedbackPanel
+        eyebrow={isUnauthorizedRemote ? 'Remoto bloqueado' : 'Falha ao carregar remoto'}
+        title={isUnauthorizedRemote ? 'A rota nao possui remoto autorizado para esta sessao' : 'Nao foi possivel montar o microfrontend'}
+        message={
+          isUnauthorizedRemote
+            ? `O shell recusou qualquer import dinamico para ${routeInfo.route} porque o catalogo autorizado nao contem este remoto.`
+            : 'O catalogo foi validado, mas a carga do remoto falhou. Revise a publicacao do remote entry e a disponibilidade do host.'
+        }
+        tone={isUnauthorizedRemote ? 'danger' : 'warning'}
+        linkAction={{
+          href: snapshot.routes[0] ?? '/',
+          label: 'Voltar para uma rota autorizada'
+        }}
+      />
+    );
+  }
 
   return (
     <section className="page-grid">
       <article className="page-card page-card--hero">
-        <p className="page-card__eyebrow">Snapshot de permissoes</p>
-        <h1>Dashboard dinamico</h1>
-        <p>
-          Este painel resume as roles efetivas, as permissoes liberadas e os microfrontends autorizados para a sessao
-          atual.
-        </p>
+        <p className="page-card__eyebrow">Remote route</p>
+        <h1>{routeInfo.title}</h1>
+        <p>{routeInfo.summary} O carregamento acontece somente apos validar o catalogo autorizado do BFF.</p>
         <dl className="metric-grid">
           <div>
             <dt>Roles</dt>
@@ -96,104 +169,22 @@ function DashboardPage(): JSX.Element {
       </article>
 
       <article className="page-card">
-        <h2>Roles efetivas</h2>
-        <ul className="chip-list">
-          {sessionState.snapshot.roles.map((role) => (
-            <li key={role}>{role}</li>
+        <h2>Rotas liberadas</h2>
+        <div className="module-grid">
+          {navigation.map((item) => (
+            <article className="module-card" key={item.route}>
+              <p className="module-card__eyebrow">{item.route === route ? 'rota atual' : 'autorizada'}</p>
+              <h3>{item.title}</h3>
+              <p>{item.summary}</p>
+            </article>
           ))}
-        </ul>
-      </article>
-
-      <article className="page-card">
-        <h2>Permissoes concedidas</h2>
-        <ul className="list-block">
-          {sessionState.snapshot.permissions.map((permission) => (
-            <li key={permission}>{permission}</li>
-          ))}
-        </ul>
+        </div>
       </article>
 
       <article className="page-card page-card--wide">
-        <h2>Modulos autorizados</h2>
-        <div className="module-grid">
-          {navigation.map((item) => {
-            const remote = findMicrofrontend(sessionState.snapshot, item.route);
-            return (
-              <article className="module-card" key={item.route}>
-                <p className="module-card__eyebrow">{remote?.id ?? 'core-shell'}</p>
-                <h3>{item.title}</h3>
-                <p>{item.summary}</p>
-                <dl>
-                  <div>
-                    <dt>Rota</dt>
-                    <dd>{item.route}</dd>
-                  </div>
-                  <div>
-                    <dt>Modulo</dt>
-                    <dd>{remote?.module ?? 'interno'}</dd>
-                  </div>
-                </dl>
-              </article>
-            );
-          })}
-        </div>
-      </article>
-    </section>
-  );
-}
-
-function FeaturePage({ route }: { route: string }): JSX.Element {
-  const { sessionState } = useSession();
-
-  if (sessionState.status !== 'ready') {
-    return <></>;
-  }
-
-  const routeInfo = describeRoute(route);
-  const microfrontend = findMicrofrontend(sessionState.snapshot, route);
-
-  return (
-    <section className="page-grid">
-      <article className="page-card page-card--hero">
-        <p className="page-card__eyebrow">Rota protegida</p>
-        <h1>{routeInfo.title}</h1>
-        <p>{routeInfo.summary}</p>
-      </article>
-
-      <article className="page-card">
-        <h2>Catalogo autorizado</h2>
-        {microfrontend ? (
-          <dl className="detail-list">
-            <div>
-              <dt>ID</dt>
-              <dd>{microfrontend.id}</dd>
-            </div>
-            <div>
-              <dt>Entrada remota</dt>
-              <dd>{microfrontend.entry}</dd>
-            </div>
-            <div>
-              <dt>Scope</dt>
-              <dd>{microfrontend.scope}</dd>
-            </div>
-            <div>
-              <dt>Modulo</dt>
-              <dd>{microfrontend.module}</dd>
-            </div>
-          </dl>
-        ) : (
-          <p>Esta rota e servida pelo proprio shell e nao depende de remote entry externo.</p>
-        )}
-      </article>
-
-      <article className="page-card">
-        <h2>Permissoes requeridas</h2>
-        <ul className="list-block">
-          {(microfrontend?.requiredPermissions ?? []).map((permission) => (
-            <li key={permission}>{permission}</li>
-          ))}
-          {(microfrontend?.requiredPermissions ?? []).length === 0 ? <li>Nenhuma permissao adicional.</li> : null}
-        </ul>
+        <h2>Microfrontend carregado</h2>
+        {status === 'loading' ? <p>Validando catalogo e carregando o remote entry autorizado...</p> : null}
+        <div className="remote-slot" data-testid={`remote-slot:${route}`} ref={containerRef} />
       </article>
     </section>
   );
@@ -219,10 +210,10 @@ export function App(): JSX.Element {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/ordens" element={<FeaturePage route="/ordens" />} />
-        <Route path="/relatorios" element={<FeaturePage route="/relatorios" />} />
-        <Route path="/admin/acessos" element={<FeaturePage route="/admin/acessos" />} />
+        <Route path="/dashboard" element={<RemotePage route="/dashboard" />} />
+        <Route path="/ordens" element={<RemotePage route="/ordens" />} />
+        <Route path="/relatorios" element={<RemotePage route="/relatorios" />} />
+        <Route path="/admin/acessos" element={<RemotePage route="/admin/acessos" />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

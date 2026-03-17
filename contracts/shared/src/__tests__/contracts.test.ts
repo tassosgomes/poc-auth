@@ -7,6 +7,8 @@ import {
   PERMISSION_SNAPSHOT_FIXTURE,
   PermissionSnapshotSchema,
   ROLE_ACCESS_SEED,
+  RoleAccessConfigListSchema,
+  RoleAccessMutationSchema,
   RoleAccessConfigSchema,
   USER_SESSION_FIXTURE,
   UserSessionSchema,
@@ -90,6 +92,20 @@ describe('shared contracts', () => {
       expect(item.scope.length).toBeGreaterThan(0);
       expect(item.module.length).toBeGreaterThan(0);
       expect(Array.isArray(item.requiredPermissions)).toBe(true);
+      expect(item.id.startsWith('mfe-')).toBe(true);
+      expect(item.module).toBe('./bootstrap');
     });
+  });
+
+  it('validates role access admin payload schemas used by the remote admin screen', () => {
+    expect(() => RoleAccessConfigListSchema.parse(ROLE_ACCESS_SEED)).not.toThrow();
+    expect(() =>
+      RoleAccessMutationSchema.parse({
+        permissions: ['dashboard:view'],
+        screens: ['dashboard'],
+        routes: ['/dashboard'],
+        microfrontends: ['mfe-dashboard']
+      })
+    ).not.toThrow();
   });
 });

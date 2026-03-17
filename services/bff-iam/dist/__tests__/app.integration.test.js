@@ -523,7 +523,7 @@ describe('BFF app integration', () => {
                 permissions: ['dashboard:view', 'ordens:view'],
                 screens: ['dashboard', 'ordens'],
                 routes: ['/dashboard', '/ordens'],
-                microfrontends: ['dashboard', 'ordens']
+                microfrontends: ['mfe-dashboard', 'mfe-ordens']
             }
         });
         expect(response.statusCode).toBe(200);

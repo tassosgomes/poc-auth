@@ -80,7 +80,7 @@ describe('RoleAccessPermissionService integration', () => {
     expect(snapshot.roles).toEqual(['coordenador', 'tecnico']);
     expect(snapshot.permissions).toEqual(['dashboard:view', 'ordens:view', 'relatorios:view']);
     expect(snapshot.routes).toEqual(['/dashboard', '/ordens', '/relatorios']);
-    expect(snapshot.microfrontends.map((item) => item.id)).toEqual(['dashboard', 'ordens', 'relatorios']);
+    expect(snapshot.microfrontends.map((item) => item.id)).toEqual(['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios']);
     await expect(redis.exists('permission_snapshot:user-123:7')).resolves.toBe(1);
     await expect(redis.exists('role_access_cache:coordenador:1')).resolves.toBe(1);
     await expect(redis.exists('role_access_cache:tecnico:1')).resolves.toBe(1);
@@ -94,7 +94,7 @@ describe('RoleAccessPermissionService integration', () => {
     });
 
     expect(initial.permissions).not.toContain('role-access:manage');
-    expect(initial.microfrontends.map((item) => item.id)).not.toContain('admin-acessos');
+  expect(initial.microfrontends.map((item) => item.id)).not.toContain('mfe-admin-acessos');
     await expect(redis.exists('permission_snapshot:tecnico-user:3')).resolves.toBe(1);
     await expect(redis.exists('role_access_cache:tecnico:1')).resolves.toBe(1);
 
@@ -102,7 +102,7 @@ describe('RoleAccessPermissionService integration', () => {
       permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
       screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
       routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
-      microfrontends: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+      microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios', 'mfe-admin-acessos'],
       updatedBy: 'admin-user',
       correlationId: 'corr-123'
     });
@@ -119,7 +119,7 @@ describe('RoleAccessPermissionService integration', () => {
     expect(refreshed.version).toBe(2);
     expect(refreshed.permissions).toContain('role-access:manage');
     expect(refreshed.routes).toContain('/admin/acessos');
-    expect(refreshed.microfrontends.map((item) => item.id)).toContain('admin-acessos');
+    expect(refreshed.microfrontends.map((item) => item.id)).toContain('mfe-admin-acessos');
 
     const auditRows = await pool.query<{
       role: string;

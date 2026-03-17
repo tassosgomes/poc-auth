@@ -55,6 +55,51 @@ export declare const RoleAccessConfigSchema: z.ZodObject<{
     version: number;
 }>;
 export type RoleAccessConfig = z.infer<typeof RoleAccessConfigSchema>;
+export declare const RoleAccessConfigListSchema: z.ZodArray<z.ZodObject<{
+    role: z.ZodEnum<["admin", "coordenador", "tecnico"]>;
+    permissions: z.ZodArray<z.ZodString, "many">;
+    screens: z.ZodArray<z.ZodString, "many">;
+    routes: z.ZodArray<z.ZodString, "many">;
+    microfrontends: z.ZodArray<z.ZodString, "many">;
+    updatedAt: z.ZodString;
+    updatedBy: z.ZodString;
+    version: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    role: "admin" | "coordenador" | "tecnico";
+    permissions: string[];
+    screens: string[];
+    routes: string[];
+    microfrontends: string[];
+    updatedAt: string;
+    updatedBy: string;
+    version: number;
+}, {
+    role: "admin" | "coordenador" | "tecnico";
+    permissions: string[];
+    screens: string[];
+    routes: string[];
+    microfrontends: string[];
+    updatedAt: string;
+    updatedBy: string;
+    version: number;
+}>, "many">;
+export declare const RoleAccessMutationSchema: z.ZodObject<{
+    permissions: z.ZodArray<z.ZodString, "many">;
+    screens: z.ZodArray<z.ZodString, "many">;
+    routes: z.ZodArray<z.ZodString, "many">;
+    microfrontends: z.ZodArray<z.ZodString, "many">;
+}, "strip", z.ZodTypeAny, {
+    permissions: string[];
+    screens: string[];
+    routes: string[];
+    microfrontends: string[];
+}, {
+    permissions: string[];
+    screens: string[];
+    routes: string[];
+    microfrontends: string[];
+}>;
+export type RoleAccessMutation = z.infer<typeof RoleAccessMutationSchema>;
 export declare const UserSessionSchema: z.ZodObject<{
     sessionId: z.ZodString;
     userId: z.ZodString;
@@ -160,6 +205,16 @@ export declare const PermissionSnapshotSchema: z.ZodObject<{
     generatedAt: string;
 }>;
 export type PermissionSnapshot = z.infer<typeof PermissionSnapshotSchema>;
+export interface RemoteBootstrapProps {
+    snapshot: PermissionSnapshot;
+    route: string;
+    bffBaseUrl: string;
+}
+export type RemoteBootstrapDispose = () => void;
+export interface RemoteBootstrapModule {
+    manifest: MicrofrontendCatalogItem;
+    mount: (container: HTMLElement, props: RemoteBootstrapProps) => void | RemoteBootstrapDispose | Promise<void | RemoteBootstrapDispose>;
+}
 export declare const PermissionDecisionSchema: z.ZodObject<{
     allowed: z.ZodBoolean;
     matchedRoles: z.ZodArray<z.ZodEnum<["admin", "coordenador", "tecnico"]>, "many">;

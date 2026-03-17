@@ -3,6 +3,20 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 
+const { loadAuthorizedRemoteMock } = vi.hoisted(() => ({
+  loadAuthorizedRemoteMock: vi.fn()
+}));
+
+vi.mock('../remote-loader', () => ({
+  UnauthorizedRemoteError: class UnauthorizedRemoteError extends Error {
+    constructor(message: string, public readonly route: string) {
+      super(message);
+      this.name = 'UnauthorizedRemoteError';
+    }
+  },
+  loadAuthorizedRemote: loadAuthorizedRemoteMock
+}));
+
 import { App } from '../app';
 import * as api from '../api';
 import { SessionProvider } from '../session';
@@ -36,6 +50,16 @@ describe('frontend shell bootstrap and guards', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
     redirectToLoginSpy.mockClear();
+    loadAuthorizedRemoteMock.mockReset();
+    loadAuthorizedRemoteMock.mockResolvedValue({
+      manifest: PERMISSION_SNAPSHOT_FIXTURE.microfrontends[0],
+      mount: (container: HTMLElement, props: { route: string }) => {
+        container.textContent = `Remote ${props.route} carregado`;
+        return () => {
+          container.textContent = '';
+        };
+      }
+    });
   });
 
   afterEach(() => {
@@ -53,6 +77,8 @@ describe('frontend shell bootstrap and guards', () => {
     expect(screen.getByRole('link', { name: /Dashboard operacional/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Administracao de acessos/i })).toBeInTheDocument();
     expect(screen.getByText('user-123')).toBeInTheDocument();
+    expect(await screen.findByText('Remote /dashboard carregado')).toBeInTheDocument();
+    expect(loadAuthorizedRemoteMock).toHaveBeenCalledWith(PERMISSION_SNAPSHOT_FIXTURE, '/dashboard');
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api-authpoc.tasso.dev.br/api/permissions',
       expect.objectContaining({ credentials: 'include' })
@@ -106,21 +132,22 @@ describe('frontend shell bootstrap and guards', () => {
   });
 
   it('blocks manual navigation to a route not present in the permission snapshot', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse({
-        ...PERMISSION_SNAPSHOT_FIXTURE,
-        permissions: ['dashboard:view'],
-        screens: ['dashboard'],
-        routes: ['/dashboard'],
-        microfrontends: PERMISSION_SNAPSHOT_FIXTURE.microfrontends.filter((item) => item.route === '/dashboard')
-      })
-    );
+    const restrictedSnapshot = {
+      ...PERMISSION_SNAPSHOT_FIXTURE,
+      permissions: ['dashboard:view'],
+      screens: ['dashboard'],
+      routes: ['/dashboard'],
+      microfrontends: PERMISSION_SNAPSHOT_FIXTURE.microfrontends.filter((item) => item.route === '/dashboard')
+    };
+
+    fetchMock.mockResolvedValue(jsonResponse(restrictedSnapshot));
 
     renderAppAt('/admin/acessos');
 
     expect(await screen.findByRole('heading', { name: 'A rota solicitada nao foi liberada para esta sessao' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Administracao de acessos/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Dashboard operacional/i })).toBeInTheDocument();
+    expect(loadAuthorizedRemoteMock).not.toHaveBeenCalled();
   });
 
   it('shows temporary unavailability feedback when the BFF cannot be reached', async () => {

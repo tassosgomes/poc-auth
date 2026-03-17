@@ -38,6 +38,16 @@ export const RoleAccessConfigSchema = z.object({
 });
 export type RoleAccessConfig = z.infer<typeof RoleAccessConfigSchema>;
 
+export const RoleAccessConfigListSchema = z.array(RoleAccessConfigSchema);
+
+export const RoleAccessMutationSchema = z.object({
+  permissions: z.array(z.string().min(1)),
+  screens: z.array(z.string().min(1)),
+  routes: z.array(z.string().min(1)),
+  microfrontends: z.array(z.string().min(1))
+});
+export type RoleAccessMutation = z.infer<typeof RoleAccessMutationSchema>;
+
 export const UserSessionSchema = z.object({
   sessionId: z.string().min(1),
   userId: z.string().min(1),
@@ -65,6 +75,22 @@ export const PermissionSnapshotSchema = z.object({
   version: z.number().int().positive()
 });
 export type PermissionSnapshot = z.infer<typeof PermissionSnapshotSchema>;
+
+export interface RemoteBootstrapProps {
+  snapshot: PermissionSnapshot;
+  route: string;
+  bffBaseUrl: string;
+}
+
+export type RemoteBootstrapDispose = () => void;
+
+export interface RemoteBootstrapModule {
+  manifest: MicrofrontendCatalogItem;
+  mount: (
+    container: HTMLElement,
+    props: RemoteBootstrapProps
+  ) => void | RemoteBootstrapDispose | Promise<void | RemoteBootstrapDispose>;
+}
 
 export const PermissionDecisionSchema = z.object({
   allowed: z.boolean(),

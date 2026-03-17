@@ -65,7 +65,7 @@ const DEFAULT_ROLE_ACCESS = [
         permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
         screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
         routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
-        microfrontends: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+        microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios', 'mfe-admin-acessos'],
         updatedAt: '2026-03-17T00:00:00.000Z',
         updatedBy: 'test-double',
         version: 1
@@ -75,7 +75,7 @@ const DEFAULT_ROLE_ACCESS = [
         permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
         screens: ['dashboard', 'ordens', 'relatorios'],
         routes: ['/dashboard', '/ordens', '/relatorios'],
-        microfrontends: ['dashboard', 'ordens', 'relatorios'],
+        microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios'],
         updatedAt: '2026-03-17T00:00:00.000Z',
         updatedBy: 'test-double',
         version: 1
@@ -85,7 +85,7 @@ const DEFAULT_ROLE_ACCESS = [
         permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
         screens: ['dashboard', 'ordens', 'relatorios'],
         routes: ['/dashboard', '/ordens', '/relatorios'],
-        microfrontends: ['dashboard', 'ordens', 'relatorios'],
+        microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios'],
         updatedAt: '2026-03-17T00:00:00.000Z',
         updatedBy: 'test-double',
         version: 1

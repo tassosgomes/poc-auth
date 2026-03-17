@@ -1,34 +1,34 @@
 export const MICROFRONTEND_CATALOG_SEED = [
     {
-        id: 'dashboard',
+        id: 'mfe-dashboard',
         route: '/dashboard',
         entry: 'https://dashboard-authpoc.tasso.dev.br/remoteEntry.js',
-        scope: 'dashboardMfe',
-        module: './App',
+        scope: 'mfeDashboard',
+        module: './bootstrap',
         requiredPermissions: ['dashboard:view']
     },
     {
-        id: 'ordens',
+        id: 'mfe-ordens',
         route: '/ordens',
         entry: 'https://ordens-authpoc.tasso.dev.br/remoteEntry.js',
-        scope: 'ordensMfe',
-        module: './App',
+        scope: 'mfeOrdens',
+        module: './bootstrap',
         requiredPermissions: ['ordens:view']
     },
     {
-        id: 'relatorios',
+        id: 'mfe-relatorios',
         route: '/relatorios',
         entry: 'https://relatorios-authpoc.tasso.dev.br/remoteEntry.js',
-        scope: 'relatoriosMfe',
-        module: './App',
+        scope: 'mfeRelatorios',
+        module: './bootstrap',
         requiredPermissions: ['relatorios:view']
     },
     {
-        id: 'admin-acessos',
+        id: 'mfe-admin-acessos',
         route: '/admin/acessos',
         entry: 'https://admin-authpoc.tasso.dev.br/remoteEntry.js',
-        scope: 'adminAcessosMfe',
-        module: './App',
+        scope: 'mfeAdminAcessos',
+        module: './bootstrap',
         requiredPermissions: ['role-access:manage']
     }
 ];
@@ -38,7 +38,7 @@ export const ROLE_ACCESS_SEED = [
         permissions: ['dashboard:view', 'ordens:view', 'relatorios:view', 'role-access:manage'],
         screens: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
         routes: ['/dashboard', '/ordens', '/relatorios', '/admin/acessos'],
-        microfrontends: ['dashboard', 'ordens', 'relatorios', 'admin-acessos'],
+        microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios', 'mfe-admin-acessos'],
         updatedAt: '2026-03-17T00:00:00.000Z',
         updatedBy: 'seed:task-1.0',
         version: 1
@@ -48,7 +48,7 @@ export const ROLE_ACCESS_SEED = [
         permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
         screens: ['dashboard', 'ordens', 'relatorios'],
         routes: ['/dashboard', '/ordens', '/relatorios'],
-        microfrontends: ['dashboard', 'ordens', 'relatorios'],
+        microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios'],
         updatedAt: '2026-03-17T00:00:00.000Z',
         updatedBy: 'seed:task-1.0',
         version: 1
@@ -58,7 +58,7 @@ export const ROLE_ACCESS_SEED = [
         permissions: ['dashboard:view', 'ordens:view', 'relatorios:view'],
         screens: ['dashboard', 'ordens', 'relatorios'],
         routes: ['/dashboard', '/ordens', '/relatorios'],
-        microfrontends: ['dashboard', 'ordens', 'relatorios'],
+        microfrontends: ['mfe-dashboard', 'mfe-ordens', 'mfe-relatorios'],
         updatedAt: '2026-03-17T00:00:00.000Z',
         updatedBy: 'seed:task-1.0',
         version: 1

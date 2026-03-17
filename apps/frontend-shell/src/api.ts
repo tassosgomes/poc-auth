@@ -1,8 +1,13 @@
 import {
   BffErrorEnvelopeSchema,
   PermissionSnapshotSchema,
+  RoleAccessConfigListSchema,
+  RoleAccessConfigSchema,
+  RoleAccessMutationSchema,
   type BffErrorEnvelope,
-  type PermissionSnapshot
+  type PermissionSnapshot,
+  type RoleAccessConfig,
+  type RoleAccessMutation
 } from '@zcorp/shared-contracts';
 
 const DEFAULT_BFF_BASE_URL = 'https://api-authpoc.tasso.dev.br';
@@ -26,6 +31,27 @@ async function readJson(response: Response): Promise<unknown> {
   }
 
   return response.json();
+}
+
+async function requestBff(pathname: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers ?? {});
+  headers.set('accept', 'application/json');
+
+  if (import.meta.env.VITE_ENABLE_CORRELATION === 'true' && !headers.has('x-correlation-id')) {
+    headers.set('x-correlation-id', buildCorrelationId());
+  }
+
+  try {
+    return await fetch(`${getBffBaseUrl()}${pathname}`, {
+      credentials: 'include',
+      ...init,
+      headers
+    });
+  } catch (error) {
+    throw new BffClientError('Nao foi possivel comunicar com o BFF.', 503, 'UPSTREAM_ERROR', undefined, {
+      cause: error
+    });
+  }
 }
 
 export class BffClientError extends Error {
@@ -80,25 +106,7 @@ async function toBffClientError(response: Response): Promise<BffClientError> {
 }
 
 export async function getPermissionSnapshot(): Promise<PermissionSnapshot> {
-  const headers = new Headers({
-    accept: 'application/json'
-  });
-
-  if (import.meta.env.VITE_ENABLE_CORRELATION === 'true') {
-    headers.set('x-correlation-id', buildCorrelationId());
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(`${getBffBaseUrl()}/api/permissions`, {
-      credentials: 'include',
-      headers
-    });
-  } catch (error) {
-    throw new BffClientError('Nao foi possivel comunicar com o BFF.', 503, 'UPSTREAM_ERROR', undefined, {
-      cause: error
-    });
-  }
+  const response = await requestBff('/api/permissions');
 
   if (!response.ok) {
     throw await toBffClientError(response);
@@ -106,4 +114,31 @@ export async function getPermissionSnapshot(): Promise<PermissionSnapshot> {
 
   const payload = await readJson(response);
   return PermissionSnapshotSchema.parse(payload);
+}
+
+export async function getRoleAccessMatrix(): Promise<RoleAccessConfig[]> {
+  const response = await requestBff('/api/admin/role-access');
+
+  if (!response.ok) {
+    throw await toBffClientError(response);
+  }
+
+  return RoleAccessConfigListSchema.parse(await readJson(response));
+}
+
+export async function updateRoleAccess(role: string, payload: RoleAccessMutation): Promise<RoleAccessConfig> {
+  const normalizedPayload = RoleAccessMutationSchema.parse(payload);
+  const response = await requestBff(`/api/admin/role-access/${role}`, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(normalizedPayload)
+  });
+
+  if (!response.ok) {
+    throw await toBffClientError(response);
+  }
+
+  return RoleAccessConfigSchema.parse(await readJson(response));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BFF_ERROR_CODES, BffErrorEnvelopeSchema, MICROFRONTEND_CATALOG_SEED, PERMISSION_SNAPSHOT_FIXTURE, PermissionSnapshotSchema, ROLE_ACCESS_SEED, RoleAccessConfigSchema, USER_SESSION_FIXTURE, UserSessionSchema, extractNormalizedRoles, parsePermissionSnapshot, parseSession, serializePermissionSnapshot, serializeSession } from '../index.js';
+import { BFF_ERROR_CODES, BffErrorEnvelopeSchema, MICROFRONTEND_CATALOG_SEED, PERMISSION_SNAPSHOT_FIXTURE, PermissionSnapshotSchema, ROLE_ACCESS_SEED, RoleAccessConfigListSchema, RoleAccessMutationSchema, RoleAccessConfigSchema, USER_SESSION_FIXTURE, UserSessionSchema, extractNormalizedRoles, parsePermissionSnapshot, parseSession, serializePermissionSnapshot, serializeSession } from '../index.js';
 describe('shared contracts', () => {
     it('validates canonical user session and keeps serialization round-trip', () => {
         const serialized = serializeSession(USER_SESSION_FIXTURE);
@@ -59,6 +59,17 @@ describe('shared contracts', () => {
             expect(item.scope.length).toBeGreaterThan(0);
             expect(item.module.length).toBeGreaterThan(0);
             expect(Array.isArray(item.requiredPermissions)).toBe(true);
+            expect(item.id.startsWith('mfe-')).toBe(true);
+            expect(item.module).toBe('./bootstrap');
         });
+    });
+    it('validates role access admin payload schemas used by the remote admin screen', () => {
+        expect(() => RoleAccessConfigListSchema.parse(ROLE_ACCESS_SEED)).not.toThrow();
+        expect(() => RoleAccessMutationSchema.parse({
+            permissions: ['dashboard:view'],
+            screens: ['dashboard'],
+            routes: ['/dashboard'],
+            microfrontends: ['mfe-dashboard']
+        })).not.toThrow();
     });
 });

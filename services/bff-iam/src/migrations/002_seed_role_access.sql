@@ -14,7 +14,7 @@ values
     '["dashboard:view","ordens:view","relatorios:view","role-access:manage"]'::jsonb,
     '["dashboard","ordens","relatorios","admin-acessos"]'::jsonb,
     '["/dashboard","/ordens","/relatorios","/admin/acessos"]'::jsonb,
-    '["dashboard","ordens","relatorios","admin-acessos"]'::jsonb,
+    '["mfe-dashboard","mfe-ordens","mfe-relatorios","mfe-admin-acessos"]'::jsonb,
     1,
     '2026-03-17T00:00:00.000Z'::timestamptz,
     'seed:task-1.0'
@@ -24,7 +24,7 @@ values
     '["dashboard:view","ordens:view","relatorios:view"]'::jsonb,
     '["dashboard","ordens","relatorios"]'::jsonb,
     '["/dashboard","/ordens","/relatorios"]'::jsonb,
-    '["dashboard","ordens","relatorios"]'::jsonb,
+    '["mfe-dashboard","mfe-ordens","mfe-relatorios"]'::jsonb,
     1,
     '2026-03-17T00:00:00.000Z'::timestamptz,
     'seed:task-1.0'
@@ -34,7 +34,7 @@ values
     '["dashboard:view","ordens:view","relatorios:view"]'::jsonb,
     '["dashboard","ordens","relatorios"]'::jsonb,
     '["/dashboard","/ordens","/relatorios"]'::jsonb,
-    '["dashboard","ordens","relatorios"]'::jsonb,
+    '["mfe-dashboard","mfe-ordens","mfe-relatorios"]'::jsonb,
     1,
     '2026-03-17T00:00:00.000Z'::timestamptz,
     'seed:task-1.0'

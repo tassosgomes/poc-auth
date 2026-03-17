@@ -19,4 +19,6 @@ Shell React responsavel por bootstrap de sessao, navegacao protegida e composica
 - bootstrap de sessao com cookie HttpOnly
 - tratamento centralizado de `401`, `403` e indisponibilidade temporaria
 - menu e rotas derivados do `PermissionSnapshot`
-- placeholders autorizados para MFEs, prontos para evolucao na tarefa 5.0
+- carregamento de MFEs via Module Federation somente apos validar o catalogo autorizado
+- bloqueio de import dinamico para rotas ausentes do snapshot do BFF
+- remoto administrativo integrado a `GET/PUT /api/admin/role-access`

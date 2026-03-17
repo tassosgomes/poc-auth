@@ -29,6 +29,13 @@ export const RoleAccessConfigSchema = z.object({
     updatedBy: z.string().min(1),
     version: z.number().int().positive()
 });
+export const RoleAccessConfigListSchema = z.array(RoleAccessConfigSchema);
+export const RoleAccessMutationSchema = z.object({
+    permissions: z.array(z.string().min(1)),
+    screens: z.array(z.string().min(1)),
+    routes: z.array(z.string().min(1)),
+    microfrontends: z.array(z.string().min(1))
+});
 export const UserSessionSchema = z.object({
     sessionId: z.string().min(1),
     userId: z.string().min(1),
